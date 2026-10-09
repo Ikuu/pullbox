@@ -22,26 +22,45 @@ system trash, not deleted.
 
 ## Requirements
 
-- [Rust](https://rustup.rs/) 1.95 or newer, to build.
+- `dav1d`, to show AVIF covers.
 - `unrar`, to read CBR files.
 - `avifenc` from libavif, for AVIF compression.
+- [Rust](https://rustup.rs/) 1.95 or newer, only to build from source.
 
-Installing the two tools:
+Installing them:
 
-| Distribution  | Command                                |
-| ------------- | -------------------------------------- |
-| Arch          | `sudo pacman -S unrar libavif`         |
-| Debian/Ubuntu | `sudo apt install unrar libavif-bin`   |
+| Distribution  | Command                                             |
+| ------------- | --------------------------------------------------- |
+| Arch          | `sudo pacman -S dav1d unrar libavif`                |
+| Debian/Ubuntu | `sudo apt install libdav1d7 unrar libavif-bin`      |
 
 ## Installing
+
+### From a release
+
+Download `comic-editor-<version>-linux-x86_64.tar.gz` from the
+[Releases](../../releases) page, then:
+
+```sh
+tar xzf comic-editor-*-linux-x86_64.tar.gz
+cd comic-editor-*-linux-x86_64
+./install.sh
+```
+
+The binary runs on x86-64 Linux with glibc 2.39 or newer (Ubuntu 24.04,
+Debian 13, Fedora 40, Arch and later).
+
+### From source
 
 ```sh
 ./install.sh
 ```
 
-This builds a release binary and installs it for the current user, along with
-a launcher entry and icon, so **Comic Editor** shows up in your application
-launcher:
+This builds a release binary.
+
+Either way, `install.sh` installs Comic Editor for the current user, along
+with a launcher entry and icon, so **Comic Editor** shows up in your
+application launcher:
 
 | What     | Where                                                           |
 | -------- | --------------------------------------------------------------- |

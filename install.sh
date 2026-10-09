@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 # Builds Comic Editor and installs it for the current user, so it appears in
-# the desktop's application launcher:
+# the desktop's application launcher. In an unpacked release download, the
+# included binary is installed instead of building one.
+#
 #
 #   binary    $PREFIX/bin/comic-editor
 #   launcher  $PREFIX/share/applications/comic-editor.desktop
@@ -31,10 +33,16 @@ if [ "${1:-}" = "--uninstall" ]; then
     exit 0
 fi
 
-echo "Building release binary…"
-cargo build --release --locked
+if [ -f comic-editor ]; then
+    # Unpacked from a release download: the binary is already built.
+    BUILT=comic-editor
+else
+    echo "Building release binary…"
+    cargo build --release --locked
+    BUILT=target/release/comic-editor
+fi
 
-install -Dm755 target/release/comic-editor "$BIN"
+install -Dm755 "$BUILT" "$BIN"
 install -Dm644 packaging/comic-editor.svg "$ICON"
 mkdir -p "$(dirname "$DESKTOP")"
 sed -e "s|@BIN@|$BIN|" -e "s|@ICON@|$ICON|" packaging/comic-editor.desktop > "$DESKTOP"
