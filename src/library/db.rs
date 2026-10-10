@@ -70,16 +70,27 @@ impl Database {
             )?;
         }
         if version < 3 {
+            // The column may already exist: builds before 0.1.0 reset
+            // `user_version` to 2 when they opened an upgraded database.
+            if !self.has_column("comics", "added")? {
+                self.conn
+                    .execute_batch("ALTER TABLE comics ADD COLUMN added INTEGER NOT NULL DEFAULT 0;")?;
+            }
             // The real date is unknown for comics already in the library; the
             // file's mtime is the closest guess. Zero (unscanned) is filled in
             // by the next scan.
-            self.conn.execute_batch(
-                "ALTER TABLE comics ADD COLUMN added INTEGER NOT NULL DEFAULT 0;
-                 UPDATE comics SET added = modified;",
-            )?;
+            self.conn.execute_batch("UPDATE comics SET added = modified WHERE added = 0;")?;
         }
-        self.conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+        // Never lower the version: a newer build may have upgraded the database.
+        if version < SCHEMA_VERSION {
+            self.conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+        }
         Ok(())
+    }
+
+    fn has_column(&self, table: &str, column: &str) -> Result<bool> {
+        let mut stmt = self.conn.prepare("SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2")?;
+        Ok(stmt.exists([table, column])?)
     }
 
     // ----- roots -----
@@ -240,6 +251,18 @@ mod tests {
     fn record(path: &str, added: i64) -> ComicRecord {
         let summary = Summary { format: Format::Cbz, page_count: 1, recompressible_pages: 1, comic_info: None };
         ComicRecord::from_summary(PathBuf::from(path), 1, 1, added, summary)
+    }
+
+    #[test]
+    fn reopens_a_database_whose_version_was_lowered() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("library.db");
+        Database::open(&path).unwrap().apply_changes(&[record("/lib/a.cbz", 100)], &[]).unwrap();
+        // What an older build does to an upgraded database.
+        Connection::open(&path).unwrap().pragma_update(None, "user_version", 2).unwrap();
+
+        let db = Database::open(&path).unwrap();
+        assert_eq!(db.added(Path::new("/lib/a.cbz")).unwrap(), Some(100));
     }
 
     #[test]
