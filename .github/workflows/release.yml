@@ -1,0 +1,46 @@
+name: Release
+
+# Pushing a tag like v0.2.0 builds the Linux binary and publishes it as a
+# GitHub release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # The binary needs the glibc it was built against or newer: 2.39 here,
+    # as promised in the README.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: sudo apt-get update && sudo apt-get install -y libdav1d-dev
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Check the tag matches Cargo.toml
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match version $version in Cargo.toml" >&2
+            exit 1
+          fi
+
+      - run: cargo build --release --locked
+
+      - name: Package
+        run: |
+          name="comic-editor-$GITHUB_REF_NAME-linux-x86_64"
+          mkdir -p "$name/packaging"
+          cp target/release/comic-editor install.sh README.md "$name/"
+          cp packaging/comic-editor.svg packaging/comic-editor.desktop "$name/packaging/"
+          tar czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" comic-editor-*.tar.gz comic-editor-*.tar.gz.sha256 \
+            --title "Comic Editor $GITHUB_REF_NAME" --generate-notes

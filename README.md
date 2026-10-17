@@ -88,7 +88,15 @@ cargo run --release
    them or compress them.
 
 The library is rescanned on every launch. Only new or changed files are read
-again, so this is quick.
+again, so this is quick. Hidden files and folders (names starting with `.`)
+are skipped. If a library folder can't be found, for example on a drive that
+isn't mounted, its comics stay in the library until it's back.
+
+When a scan or job can't process some comics, the status bar shows a
+**⚠ problems** link. Click it to see which files failed and why.
+
+Quitting while a job is running asks first, and then stops after the comic
+being worked on, so no comic is left half-finished.
 
 ## Shortcuts
 
@@ -114,8 +122,28 @@ Set `COMIC_EDITOR_DB` to use a different library database.
 
 ## Development
 
+Building needs the dav1d development files (`libdav1d-dev` on Debian/Ubuntu;
+included in Arch's `dav1d` package).
+
 ```sh
-cargo test                # unit tests
-cargo test -- --ignored   # also the tests that need avifenc or contact ComicVine
+cargo test                # unit tests, no other tools needed
+cargo test -- --ignored   # the tests that need avifenc or contact ComicVine
 cargo clippy --all-targets
 ```
+
+GitHub Actions runs clippy and the tests (except the ComicVine one) on every
+push to `main` and on pull requests.
+
+### Releasing
+
+1. Bump `version` in `Cargo.toml` and commit.
+2. Tag the commit with that version and push the tag:
+
+   ```sh
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+The release workflow builds the binary on Ubuntu 24.04, packages
+`comic-editor-<tag>-linux-x86_64.tar.gz` with its `.sha256`, and publishes
+them as a GitHub release. It fails if the tag doesn't match `Cargo.toml`.

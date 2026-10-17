@@ -2,7 +2,8 @@
 //! (e.g. `~/.config/comic-editor/settings.json`).
 
 use std::fs;
-use std::path::PathBuf;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -58,11 +59,47 @@ impl Settings {
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir)?;
         }
-        fs::write(&path, serde_json::to_string_pretty(self)?)
+        write_private(&path, serde_json::to_string_pretty(self)?.as_bytes())
             .with_context(|| format!("failed to write {}", path.display()))
     }
 }
 
+/// Writes `contents` to a file only the current user can read: it holds the
+/// ComicVine API key.
+fn write_private(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        options.mode(0o600);
+        // `mode` only applies to new files; tighten one saved by older builds.
+        if path.exists() {
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        }
+    }
+    options.open(path)?.write_all(contents)
+}
+
 fn settings_path() -> Option<PathBuf> {
     crate::util::project_dirs().map(|dirs| dirs.config_dir().join("settings.json"))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn settings_file_is_private() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        // As saved by older builds.
+        fs::write(&path, "{}").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+
+        write_private(&path, b"{\"comicvine_api_key\": \"secret\"}").unwrap();
+        assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        assert!(fs::read_to_string(&path).unwrap().contains("secret"));
+    }
 }

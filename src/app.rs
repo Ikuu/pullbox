@@ -13,8 +13,8 @@ use crate::library::scanner::{self, ScanEvent, ScanHandle, ScanReport};
 use crate::library::{ComicRecord, Database};
 use crate::ui::{
     ComicAction, ComicGrid, ComicTable, ComicVineDialog, ComicVineTarget, ComicView, CompressDialog, CompressOutcome, EditorOutcome,
-    FieldValues, FolderTree, InfoEditor, Scope, ScrapeOutcome, Selection, SettingsDialog, SettingsOutcome, TreeAction,
-    comic_grid,
+    ErrorsDialog, FieldValues, FolderTree, InfoEditor, QuitOutcome, Scope, ScrapeOutcome, Selection, SettingsDialog,
+    SettingsOutcome, TreeAction, comic_grid, show_quit_dialog,
 };
 use crate::settings::{Settings, ViewMode};
 use crate::thumbnails::Thumbnails;
@@ -56,6 +56,13 @@ pub struct ComicEditorApp {
     scan: Option<ScanProgress>,
     job: Option<JobProgress>,
     status: String,
+    /// What the last scan or job couldn't process, offered from the status bar.
+    errors: Option<ErrorsDialog>,
+    show_errors: bool,
+    /// The user tried to quit while a job was running and is being asked.
+    confirm_quit: bool,
+    /// Quit as soon as the (cancelled) job has stopped.
+    quit_when_idle: bool,
 }
 
 /// What the user has narrowed the comic list down to.
@@ -111,6 +118,10 @@ impl ComicEditorApp {
             scan: None,
             job: None,
             status: String::new(),
+            errors: None,
+            show_errors: false,
+            confirm_quit: false,
+            quit_when_idle: false,
         };
         app.reload()?;
         Ok(app)
@@ -191,11 +202,19 @@ impl ComicEditorApp {
 
         if let Some(result) = finished {
             self.scan = None;
+            let scanned = result.is_ok();
             self.status = match result {
-                Ok(report) => describe_scan(&report),
+                Ok(report) => {
+                    let status = describe_scan(&report);
+                    self.set_errors("Problems found while scanning", scan_errors(report));
+                    status
+                }
                 Err(e) => format!("Scan failed: {e:#}"),
             };
             let reloaded = self.reload();
+            if scanned && reloaded.is_ok() {
+                self.thumbnails.prune_cache(&self.comics);
+            }
             self.report_error(reloaded);
         }
     }
@@ -218,7 +237,11 @@ impl ComicEditorApp {
             let kind = job.handle.kind;
             self.job = None;
             self.status = match result {
-                Ok(report) => describe_job(kind, &report),
+                Ok(report) => {
+                    let status = describe_job(kind, &report);
+                    self.set_errors(&format!("{} failed for some comics", kind.title()), report.errors);
+                    status
+                }
                 Err(e) => format!("{} failed: {e:#}", kind.title()),
             };
             let reloaded = self.reload();
@@ -454,6 +477,42 @@ impl ComicEditorApp {
             || self.compress_dialog.is_some()
             || self.comicvine_dialog.is_some()
             || self.settings_dialog.is_some()
+            || self.show_errors
+            || self.confirm_quit
+    }
+
+    fn show_errors_dialog(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = self.errors.as_ref().filter(|_| self.show_errors) else { return };
+        if dialog.show(ctx) {
+            // Seen; nothing left to offer until the next scan or job.
+            self.errors = None;
+            self.show_errors = false;
+        }
+    }
+
+    /// Asks before quitting mid-job, so a comic isn't left half-rewritten.
+    fn handle_close_request(&mut self, ctx: &egui::Context) {
+        if ctx.input(|i| i.viewport().close_requested()) && self.job.is_some() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            self.confirm_quit = !self.quit_when_idle;
+        }
+        if self.quit_when_idle && self.job.is_none() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+
+        let Some(job) = self.job.as_ref().filter(|_| self.confirm_quit) else {
+            self.confirm_quit = false;
+            return;
+        };
+        match show_quit_dialog(ctx, job.handle.kind.title()) {
+            Some(QuitOutcome::StopAndQuit) => {
+                job.handle.cancel();
+                self.quit_when_idle = true;
+                self.confirm_quit = false;
+            }
+            Some(QuitOutcome::KeepRunning) => self.confirm_quit = false,
+            None => {}
+        }
     }
 
     fn show_editor(&mut self, ctx: &egui::Context) {
@@ -494,6 +553,12 @@ impl ComicEditorApp {
         }
         let reloaded = self.reload();
         self.report_error(reloaded);
+    }
+
+    /// Replaces the list offered by the status bar's problems link.
+    fn set_errors(&mut self, title: &str, errors: Vec<(PathBuf, String)>) {
+        self.show_errors = false;
+        self.errors = (!errors.is_empty()).then(|| ErrorsDialog::new(title.to_owned(), errors));
     }
 
     /// Shows an error in the status bar; keeps the app running.
@@ -610,13 +675,24 @@ impl ComicEditorApp {
                             .desired_width(200.0)
                             .text(format!("{} {}/{}", job.handle.kind.title(), job.done, job.total)),
                     );
-                    ui.label(if cancelling { "Cancelling after current comic…" } else { &job.current });
+                    let cancel_text =
+                        if self.quit_when_idle { "Quitting after current comic…" } else { "Cancelling after current comic…" };
+                    ui.label(if cancelling { cancel_text } else { &job.current });
                 } else if let Some(scan) = &self.scan {
                     ui.add(
                         egui::ProgressBar::new(fraction(scan.done, scan.total))
                             .desired_width(200.0)
                             .text(format!("{}/{}", scan.done, scan.total)),
                     );
+                }
+                if let Some(errors) = &self.errors {
+                    let text = match errors.count() {
+                        1 => "⚠ 1 problem".to_owned(),
+                        n => format!("⚠ {n} problems"),
+                    };
+                    if ui.link(text).on_hover_text("Show details").clicked() {
+                        self.show_errors = true;
+                    }
                 }
                 ui.label(&self.status);
             });
@@ -734,6 +810,8 @@ impl eframe::App for ComicEditorApp {
         self.show_compress_dialog(&ctx);
         self.show_comicvine_dialog(&ctx);
         self.show_settings_dialog(&ctx);
+        self.show_errors_dialog(&ctx);
+        self.handle_close_request(&ctx);
     }
 }
 
@@ -745,7 +823,18 @@ fn describe_scan(report: &ScanReport) -> String {
             eprintln!("unreadable: {}: {error}", path.display());
         }
     }
+    if !report.unavailable.is_empty() {
+        text += &format!(", {} folder(s) not found", report.unavailable.len());
+    }
     text
+}
+
+/// Unreadable comics, then missing library folders.
+fn scan_errors(report: ScanReport) -> Vec<(PathBuf, String)> {
+    let missing = "Library folder not found or not readable. Its comics stay in the library until it's back.";
+    let mut errors = report.errors;
+    errors.extend(report.unavailable.into_iter().map(|root| (root, missing.to_owned())));
+    errors
 }
 
 fn describe_job(kind: JobKind, report: &JobReport) -> String {

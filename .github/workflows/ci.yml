@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      # dav1d to build AVIF decoding; avifenc for the AVIF tests.
+      - run: sudo apt-get update && sudo apt-get install -y libdav1d-dev libavif-bin
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      # Everything except the test that contacts ComicVine.
+      - run: cargo test --locked -- --include-ignored --skip invalid_key_is_reported

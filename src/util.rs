@@ -131,6 +131,19 @@ pub fn open_in_file_manager(dir: &Path) -> std::io::Result<()> {
     std::process::Command::new(program).arg(dir).spawn().map(|_| ())
 }
 
+/// Writes a colourful, photo-like JPEG page for tests.
+#[cfg(test)]
+pub fn write_test_page(path: &Path, width: u32, height: u32) {
+    use image::codecs::jpeg::JpegEncoder;
+    let page = image::RgbImage::from_fn(width, height, |x, y| {
+        let (fx, fy) = (x as f32 / width as f32, y as f32 / height as f32);
+        let wave = ((fx * 23.0).sin() * (fy * 17.0).cos() * 0.5 + 0.5) * 255.0;
+        image::Rgb([(fx * 255.0) as u8, wave as u8, (fy * 255.0) as u8])
+    });
+    let file = std::fs::File::create(path).unwrap();
+    page.write_with_encoder(JpegEncoder::new_with_quality(file, 95)).unwrap();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

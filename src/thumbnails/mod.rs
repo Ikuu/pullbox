@@ -38,6 +38,7 @@ pub struct Thumbnails {
     results: Receiver<(ThumbKey, Option<egui::ColorImage>)>,
     slots: HashMap<ThumbKey, Slot>,
     frame: u64,
+    cache_dir: PathBuf,
 }
 
 impl Thumbnails {
@@ -58,7 +59,19 @@ impl Thumbnails {
             thread::spawn(move || worker.run());
         }
 
-        Self { requests, results, slots: HashMap::new(), frame: 0 }
+        Self { requests, results, slots: HashMap::new(), frame: 0, cache_dir }
+    }
+
+    /// Deletes cached thumbnails for anything not in `comics` (old versions of
+    /// edited comics, removed comics), on a background thread.
+    pub fn prune_cache(&self, comics: &[ComicRecord]) {
+        let keep: Vec<ThumbKey> = comics.iter().map(ThumbKey::for_comic).collect();
+        let cache_dir = self.cache_dir.clone();
+        thread::spawn(move || {
+            if let Err(e) = generate::prune_cache(&cache_dir, &keep) {
+                eprintln!("thumbnail cache: {}: {e:#}", cache_dir.display());
+            }
+        });
     }
 
     /// Call once per frame before any `get`: uploads finished thumbnails and
@@ -81,11 +94,7 @@ impl Thumbnails {
 
     /// The comic's cover thumbnail, or `None` while it loads (or if it can't).
     pub fn get(&mut self, comic: &ComicRecord) -> Option<&egui::TextureHandle> {
-        let key = ThumbKey {
-            path: comic.path.clone(),
-            size: comic.size,
-            modified: comic.modified,
-        };
+        let key = ThumbKey::for_comic(comic);
         let slot = self.slots.entry(key).or_insert_with_key(|key| {
             self.requests.push(key.clone());
             Slot::Pending
