@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use egui::collapsing_header::CollapsingState;
 
+use crate::icons::{self, Tone};
 use crate::library::ComicRecord;
 use crate::util::natural_cmp;
 
@@ -87,12 +88,12 @@ impl FolderTree {
         let mut action = None;
 
         let entries = [
-            (Scope::All, format!("All Comics  ({})", self.total)),
-            (Scope::Recent, format!("Recently Added  ({})", self.recent)),
+            (Scope::All, "document-multiple", "All Comics", self.total),
+            (Scope::Recent, "clock", "Recently Added", self.recent),
         ];
-        for (entry, text) in entries {
+        for (entry, icon, name, count) in entries {
             let is_selected = *scope == entry;
-            let mut response = ui.selectable_label(is_selected, text);
+            let mut response = entry_label(ui, is_selected, icon, name, count);
             if entry == Scope::Recent {
                 response = response.on_hover_text("Newest first. Change how far back it looks in Settings.");
             }
@@ -100,7 +101,7 @@ impl FolderTree {
                 action = Some(click_action(is_selected, entry));
             }
             response.context_menu(|ui| {
-                if ui.add(egui::Button::new("Refresh Library").shortcut_text("F5")).clicked() {
+                if ui.add(icons::button("view-refresh", "", "Refresh Library").shortcut_text("F5")).clicked() {
                     action = Some(TreeAction::Refresh(None));
                     ui.close();
                 }
@@ -119,6 +120,19 @@ impl FolderTree {
         }
         action
     }
+}
+
+/// A tree entry: an icon, its name, then a dimmer comic count.
+fn entry_label(ui: &mut egui::Ui, selected: bool, icon: &str, name: &str, count: usize) -> egui::Response {
+    let visuals = ui.visuals();
+    let count_color = if selected { visuals.selection.stroke.color } else { visuals.weak_text_color() };
+    let count = egui::RichText::new(count.to_string()).color(count_color);
+    let tone = if selected { Tone::Selected } else { Tone::Normal };
+    let button = match icons::toned(icon, tone) {
+        Some(icon) => egui::Button::selectable(selected, (icon, name, count)),
+        None => egui::Button::selectable(selected, (name, count)),
+    };
+    ui.add(button.gap(6.0))
 }
 
 /// Clicking an entry selects it; clicking the already-selected entry refreshes
@@ -185,23 +199,24 @@ fn show_node(
 
     let mut label = |ui: &mut egui::Ui| {
         let is_selected = selected == Some(node.path.as_path());
-        let text = format!("{}  ({})", node.name, node.comic_count);
-        let response = ui.selectable_label(is_selected, text).on_hover_text(node.path.display().to_string());
+        let icon = if is_root { "folder-library" } else { "folder" };
+        let response = entry_label(ui, is_selected, icon, &node.name, node.comic_count)
+            .on_hover_text(node.path.display().to_string());
         if response.clicked() {
             *action = Some(click_action(is_selected, Scope::Folder(node.path.clone())));
         }
         response.context_menu(|ui| {
-            if ui.button("Refresh").clicked() {
+            if ui.add(icons::button("view-refresh", "", "Refresh")).clicked() {
                 *action = Some(TreeAction::Refresh(Some(node.path.clone())));
                 ui.close();
             }
-            if ui.button("Open in File Manager").clicked() {
+            if ui.add(icons::button("folder-open", "", "Open in File Manager")).clicked() {
                 *action = Some(TreeAction::OpenInFileManager(node.path.clone()));
                 ui.close();
             }
             if is_root {
                 ui.separator();
-                if ui.button("Remove from Library").clicked() {
+                if ui.add(icons::button("list-remove", "", "Remove from Library")).clicked() {
                     *action = Some(TreeAction::RemoveRoot(node.path.clone()));
                     ui.close();
                 }
@@ -211,8 +226,10 @@ fn show_node(
 
     if node.children.is_empty() {
         ui.horizontal(|ui| {
-            // Line leaves up with siblings that have an expand arrow.
-            ui.add_space(ui.spacing().icon_width + ui.spacing().item_spacing.x);
+            // Line leaves up with siblings that have an expand arrow, which
+            // takes the full indent width with no gap after it.
+            ui.spacing_mut().item_spacing.x = 0.0;
+            ui.add_space(ui.spacing().indent);
             label(ui);
         });
         return true;

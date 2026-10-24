@@ -16,11 +16,21 @@ pub struct Settings {
     pub default_view: ViewMode,
     /// How far back "Recently Added" looks.
     pub recent_days: u32,
+    /// Whether the details pane is open.
+    pub show_details: bool,
+    /// Titles of the list columns the user has hidden.
+    pub hidden_columns: Vec<String>,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { comicvine_api_key: String::new(), default_view: ViewMode::default(), recent_days: 30 }
+        Self {
+            comicvine_api_key: String::new(),
+            default_view: ViewMode::default(),
+            recent_days: 30,
+            show_details: true,
+            hidden_columns: Vec::new(),
+        }
     }
 }
 

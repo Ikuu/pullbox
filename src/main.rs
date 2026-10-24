@@ -3,9 +3,11 @@ mod archive;
 mod comicinfo;
 mod comicvine;
 mod convert;
+mod icons;
 mod jobs;
 mod library;
 mod settings;
+mod theme;
 mod thumbnails;
 mod ui;
 mod util;
@@ -35,6 +37,7 @@ fn main() -> eframe::Result {
         Box::new(|cc| {
             // Lets egui::Image load ComicVine cover URLs.
             egui_extras::install_image_loaders(&cc.egui_ctx);
+            theme::init(&cc.egui_ctx);
             let mut app = ComicEditorApp::new(library::default_db_path(), &cc.egui_ctx)?;
             // Pick up anything that changed on disk while the app was closed.
             app.start_scan(&cc.egui_ctx);

@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 
 use super::Selection;
+use crate::icons;
 use crate::library::ComicRecord;
 
 /// Something the user asked to do with comics.
@@ -76,21 +77,21 @@ impl ComicView<'_> {
         let count = self.selection.len();
         let edit_label = if count > 1 { format!("Edit Info ({count} comics)…") } else { "Edit Info…".to_owned() };
 
-        if ui.add(egui::Button::new(edit_label).shortcut_text("Ctrl+I")).clicked() {
+        if ui.add(icons::button("document-edit", "", &edit_label).shortcut_text("Ctrl+I")).clicked() {
             return Some(ComicAction::EditInfo(self.selected()));
         }
-        if ui.button("Look Up on ComicVine…").clicked() {
+        if ui.add(icons::button("globe", "", "Look Up on ComicVine…")).clicked() {
             return Some(ComicAction::LookUpComicVine(self.selected()));
         }
         ui.separator();
-        if ui.button("Convert to CBZ").clicked() {
+        if ui.add(icons::button("convert", "", "Convert to CBZ")).clicked() {
             return Some(ComicAction::ConvertToCbz(self.selected()));
         }
-        if ui.button("Compress to AVIF…").clicked() {
+        if ui.add(icons::button("archive-insert", "", "Compress to AVIF…")).clicked() {
             return Some(ComicAction::CompressAvif(self.selected()));
         }
         ui.separator();
-        if ui.button("Show in File Manager").clicked() {
+        if ui.add(icons::button("folder-open", "", "Show in File Manager")).clicked() {
             return Some(ComicAction::OpenInFileManager(comic.folder().to_path_buf()));
         }
         None

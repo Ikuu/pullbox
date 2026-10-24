@@ -10,7 +10,7 @@ chrono = { version = "0.4.45", default-features = false, features = ["clock", "u
 directories = "6.0.0"
 eframe = { version = "0.36.2", features = ["persistence"] }
 egui = "0.36.2"
-egui_extras = { version = "0.36.2", features = ["http", "image"] }
+egui_extras = { version = "0.36.2", features = ["http", "image", "svg"] }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp", "tiff", "avif-native"] }
 pure-rust-locales = "0.8"
 rayon = "1.12.0"

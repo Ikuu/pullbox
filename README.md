@@ -9,6 +9,11 @@ A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
   title, publisher, writer or file name.
 - **Recently Added**: the newest comics in the library, newest first. How far
   back it looks is set in Settings (30 days by default).
+- **Details pane**: the selected comic's cover, credits and summary. Toggle it
+  with the Details button.
+- **Fits your desktop**: uses the KDE colour scheme, font and icon theme, and
+  restyles itself when you change them. Elsewhere it uses Breeze Dark colours
+  and the system font. Right-click the list's header to choose its columns.
 - **Metadata editing**: edit the `ComicInfo.xml` inside a comic, or change
   several comics at once.
 - **ComicVine lookup**: match comics against [ComicVine](https://comicvine.gamespot.com/)
