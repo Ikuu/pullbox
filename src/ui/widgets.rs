@@ -73,3 +73,20 @@ pub fn section(ui: &mut egui::Ui, title: &str) {
     ui.label(egui::RichText::new(title.to_uppercase()).small().family(theme::bold()).weak());
     ui.add_space(2.0);
 }
+
+/// The top of a window: its title on the left, a close button on the right,
+/// then a separator. Used instead of egui's title bar, which is much taller
+/// than the headings on the other dialogs. Returns true if the close button
+/// was clicked.
+pub fn window_header(ui: &mut egui::Ui, title: &str) -> bool {
+    let mut close = false;
+    ui.horizontal(|ui| {
+        ui.heading(title);
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let button = icons::button("window-close", "🗙", "").frame(false);
+            close = ui.add(button).on_hover_text("Close").clicked();
+        });
+    });
+    ui.separator();
+    close
+}

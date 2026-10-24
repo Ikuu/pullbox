@@ -3,7 +3,7 @@
 
 use egui::{CornerRadius, Rect, RichText, Sense, vec2};
 
-use super::widgets::section;
+use super::widgets::{section, window_header};
 use crate::library::stats::{Group, Stats};
 use crate::theme;
 use crate::util::format_bytes;
@@ -32,13 +32,11 @@ impl StatsDialog {
     /// Returns false once the user closes the window.
     pub fn show(&mut self, ctx: &egui::Context) -> bool {
         let mut open = true;
-        egui::Window::new("Library Stats").open(&mut open).default_size([760.0, 640.0]).collapsible(false).show(
-            ctx,
-            |ui| {
-                ui.weak(format!("Stats for {}", self.scope));
-                egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| self.body(ui));
-            },
-        );
+        egui::Window::new("Library Stats").title_bar(false).default_size([760.0, 640.0]).show(ctx, |ui| {
+            open = !window_header(ui, "Library Stats");
+            ui.weak(format!("Stats for {}", self.scope));
+            egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| self.body(ui));
+        });
         open
     }
 

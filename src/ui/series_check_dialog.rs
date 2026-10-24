@@ -8,6 +8,7 @@ use std::sync::mpsc::{Receiver, channel};
 
 use egui::RichText;
 
+use super::widgets::window_header;
 use crate::archive;
 use crate::library::ComicRecord;
 use crate::library::series_check::{self, Contents, Report, SeriesReport, format_issues, parse_issue_list};
@@ -124,11 +125,11 @@ impl SeriesCheckDialog {
         let mut outcome = None;
         let mut open = true;
         egui::Window::new("Series Check")
-            .open(&mut open)
+            .title_bar(false)
             .default_size([680.0, 560.0])
-            .collapsible(false)
             .show(ctx, |ui| {
                 ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
+                open = !window_header(ui, "Series Check");
                 self.header(ui);
                 ui.separator();
                 egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
