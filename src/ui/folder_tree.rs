@@ -37,6 +37,8 @@ pub enum TreeAction {
     CheckSeries(Option<PathBuf>),
     /// Show sizes, savings and tagging for a folder, or the whole library.
     Stats(Option<PathBuf>),
+    /// Organise the manga in a folder into story arcs.
+    StoryArcs(PathBuf),
     RemoveRoot(PathBuf),
     /// Change what a library folder holds.
     SetKind(PathBuf, LibraryKind),
@@ -131,7 +133,7 @@ impl FolderTree {
 
         let mut any_shown = false;
         for root in &self.roots {
-            any_shown |= show_node(ui, root, true, selected, filter, &mut action);
+            any_shown |= show_node(ui, root, root.kind.unwrap_or_default(), selected, filter, &mut action);
         }
         if !any_shown && filter != Filter::Off {
             ui.weak("No matching folders");
@@ -198,14 +200,16 @@ fn subtree_matches(node: &FolderNode, needle: &str) -> bool {
 }
 
 /// Draws `node` and its children. Returns false if the filter hid it.
+/// `kind` is what the library folder holding `node` holds.
 fn show_node(
     ui: &mut egui::Ui,
     node: &FolderNode,
-    is_root: bool,
+    kind: LibraryKind,
     selected: Option<&Path>,
     filter: Filter,
     action: &mut Option<TreeAction>,
 ) -> bool {
+    let is_root = node.kind.is_some();
     // Roots are full paths, so they're never matched by name themselves.
     let (child_filter, open_by_default) = match filter {
         Filter::Off => (Filter::Off, is_root),
@@ -242,6 +246,10 @@ fn show_node(
             }
             if ui.add(icons::button("office-chart-bar", "", "Stats…")).clicked() {
                 *action = Some(TreeAction::Stats(Some(node.path.clone())));
+                ui.close();
+            }
+            if kind == LibraryKind::Manga && ui.add(icons::button("format-list-ordered", "", "Story Arcs…")).clicked() {
+                *action = Some(TreeAction::StoryArcs(node.path.clone()));
                 ui.close();
             }
             if ui.add(icons::button("folder-open", "", "Open in File Manager")).clicked() {
@@ -286,7 +294,7 @@ fn show_node(
         .show_header(ui, label)
         .body(|ui| {
             for child in &node.children {
-                show_node(ui, child, false, selected, child_filter, action);
+                show_node(ui, child, kind, selected, child_filter, action);
             }
         });
     true

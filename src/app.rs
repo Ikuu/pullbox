@@ -15,7 +15,8 @@ use crate::library::{ComicRecord, Database, LibraryKind, Root, kind_of, stats};
 use crate::ui::{
     AboutDialog, AddFolderDialog, AddFolderOutcome, AniListDialog, AniListTarget, ComicAction, ComicGrid, ComicTable, ComicVineDialog, ComicVineTarget, ComicView, CompressDialog, CompressOutcome,
     DetailsPane, EditorOutcome, ErrorsDialog, FieldValues, FolderTree, InfoEditor, QuitOutcome, Scope, ScrapeOutcome,
-    Selection, SeriesCheckDialog, SeriesCheckOutcome, SettingsDialog, SettingsOutcome, StatsDialog, ToastKind, Toasts,
+    ArcsOutcome, Selection, SeriesCheckDialog, SeriesCheckOutcome, SettingsDialog, SettingsOutcome, StatsDialog,
+    StoryArcsDialog, ToastKind, Toasts,
     TreeAction, comic_grid, progress_bar,
     show_quit_dialog, widgets,
 };
@@ -64,6 +65,7 @@ pub struct ComicEditorApp {
     compress_dialog: Option<CompressDialog>,
     series_check: Option<SeriesCheckDialog>,
     stats: Option<StatsDialog>,
+    story_arcs: Option<StoryArcsDialog>,
     about: Option<AboutDialog>,
     add_folder: Option<AddFolderDialog>,
     /// A comic to scroll into view in the list or grid next frame.
@@ -137,6 +139,7 @@ impl ComicEditorApp {
             compress_dialog: None,
             series_check: None,
             stats: None,
+            story_arcs: None,
             about: None,
             add_folder: None,
             scroll_to: None,
@@ -578,6 +581,7 @@ impl ComicEditorApp {
             || self.settings_dialog.is_some()
             || self.about.is_some()
             || self.add_folder.is_some()
+            || self.story_arcs.is_some()
             || self.show_errors
             || self.confirm_quit
     }
@@ -657,6 +661,26 @@ impl ComicEditorApp {
         let comics = self.comics_under(folder.as_deref());
         let stats = stats::compute(&comics, &original_sizes, self.recent_since);
         self.stats = Some(StatsDialog::new(scope_label(folder.as_deref()), stats, self.settings.recent_days));
+    }
+
+    fn open_story_arcs(&mut self, folder: &Path) {
+        if self.job_running() {
+            return;
+        }
+        let comics = self.comics_under(Some(folder));
+        self.story_arcs = Some(StoryArcsDialog::new(scope_label(Some(folder)), &comics));
+    }
+
+    fn show_story_arcs(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = &mut self.story_arcs else { return };
+        match dialog.show(ctx) {
+            Some(ArcsOutcome::Apply(edits)) => {
+                self.story_arcs = None;
+                self.save_info(ctx, edits);
+            }
+            Some(ArcsOutcome::Cancel) => self.story_arcs = None,
+            None => {}
+        }
     }
 
     fn comics_under(&self, folder: Option<&Path>) -> Vec<ComicRecord> {
@@ -780,6 +804,7 @@ impl ComicEditorApp {
             TreeAction::Refresh(folder) => self.refresh(ctx, folder),
             TreeAction::CheckSeries(folder) => self.open_series_check(ctx, folder),
             TreeAction::Stats(folder) => self.open_stats(folder),
+            TreeAction::StoryArcs(folder) => self.open_story_arcs(&folder),
             TreeAction::RemoveRoot(root) => self.remove_root(&root),
             TreeAction::SetKind(root, kind) => self.set_root_kind(&root, kind),
             TreeAction::OpenInFileManager(dir) => self.open_dir(&dir),
@@ -1164,6 +1189,7 @@ impl eframe::App for ComicEditorApp {
             self.about = None;
         }
         self.show_add_folder_dialog(&ctx);
+        self.show_story_arcs(&ctx);
         self.handle_close_request(&ctx);
         self.toasts.show(&ctx, status_bar.response.rect.height());
     }

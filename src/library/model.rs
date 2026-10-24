@@ -104,6 +104,9 @@ pub struct ComicMeta {
     pub month: Option<i32>,
     pub publisher: String,
     pub writer: String,
+    pub story_arc: String,
+    /// The comic's place in its story arc.
+    pub story_arc_number: String,
 }
 
 impl ComicRecord {
@@ -129,6 +132,8 @@ impl ComicRecord {
                     month: info.get_i32("Month"),
                     publisher: text("Publisher"),
                     writer: text("Writer"),
+                    story_arc: text("StoryArc"),
+                    story_arc_number: text("StoryArcNumber"),
                 }
             }
             None => ComicMeta::default(),
@@ -180,7 +185,7 @@ impl ComicRecord {
     /// Case-insensitive match against the fields a user is likely to search.
     pub fn matches(&self, needle_lower: &str) -> bool {
         let m = &self.meta;
-        [&self.file_name(), &m.series, &m.title, &m.publisher, &m.writer]
+        [&self.file_name(), &m.series, &m.title, &m.publisher, &m.writer, &m.story_arc]
             .iter()
             .any(|field| field.to_lowercase().contains(needle_lower))
     }

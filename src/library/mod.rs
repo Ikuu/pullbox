@@ -5,6 +5,7 @@ mod model;
 pub mod scanner;
 pub mod series_check;
 pub mod stats;
+pub mod story_arcs;
 
 pub use db::Database;
 pub use model::{ComicRecord, LibraryKind, Root, kind_of};

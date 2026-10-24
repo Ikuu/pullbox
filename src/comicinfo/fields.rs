@@ -71,6 +71,7 @@ pub const FIELDS: &[FieldDef] = &[
     field("AlternateSeries", "Alternate Series", Text),
     field("AlternateNumber", "Alt. Number", Text),
     field("StoryArc", "Story Arc", Text),
+    field("StoryArcNumber", "Arc Part", Text),
     field("SeriesGroup", "Series Group", Text),
     field("AlternateCount", "of", Integer),
     field("Summary", "Summary", MultiLine),

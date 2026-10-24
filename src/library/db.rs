@@ -14,7 +14,7 @@ use crate::archive::Format;
 const COMIC_DATA_TABLES: [&str; 2] = ["collects", "original_sizes"];
 
 /// Bump when the schema changes and add a step to `migrate`.
-const SCHEMA_VERSION: i32 = 6;
+const SCHEMA_VERSION: i32 = 7;
 
 pub struct Database {
     conn: Connection,
@@ -110,6 +110,15 @@ impl Database {
             // What each library folder holds; existing folders hold comics.
             self.conn
                 .execute_batch("ALTER TABLE roots ADD COLUMN kind TEXT NOT NULL DEFAULT 'comic';")?;
+        }
+        if version < 7 && !self.has_column("comics", "story_arc")? {
+            // Clearing `modified` makes the next scan re-read every comic,
+            // filling in the new columns.
+            self.conn.execute_batch(
+                "ALTER TABLE comics ADD COLUMN story_arc TEXT NOT NULL DEFAULT '';
+                 ALTER TABLE comics ADD COLUMN story_arc_number TEXT NOT NULL DEFAULT '';
+                 UPDATE comics SET modified = 0;",
+            )?;
         }
         // Never lower the version: a newer build may have upgraded the database.
         if version < SCHEMA_VERSION {
@@ -223,7 +232,8 @@ impl Database {
     pub fn all_comics(&self) -> Result<Vec<ComicRecord>> {
         let mut stmt = self.conn.prepare(
             "SELECT path, size, modified, format, page_count, has_info, series, number,
-                    volume, title, year, month, publisher, writer, compressed, added
+                    volume, title, year, month, publisher, writer, compressed, added,
+                    story_arc, story_arc_number
              FROM comics",
         )?;
         let comics = stmt
@@ -265,9 +275,11 @@ impl Database {
             let mut upsert = tx.prepare(
                 "INSERT OR REPLACE INTO comics
                      (path, size, modified, format, page_count, has_info, series, number,
-                      volume, title, year, month, publisher, writer, compressed, added)
+                      volume, title, year, month, publisher, writer, compressed, added,
+                      story_arc, story_arc_number)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
-                         COALESCE((SELECT NULLIF(added, 0) FROM comics WHERE path = ?1), ?16))",
+                         COALESCE((SELECT NULLIF(added, 0) FROM comics WHERE path = ?1), ?16),
+                         ?17, ?18)",
             )?;
             for c in upserts {
                 let m = &c.meta;
@@ -288,6 +300,8 @@ impl Database {
                     m.writer,
                     c.compressed,
                     c.added,
+                    m.story_arc,
+                    m.story_arc_number,
                 ])?;
             }
 
@@ -324,6 +338,8 @@ fn record_from_row(r: &Row) -> rusqlite::Result<ComicRecord> {
             month: r.get(11)?,
             publisher: r.get(12)?,
             writer: r.get(13)?,
+            story_arc: r.get(16)?,
+            story_arc_number: r.get(17)?,
         },
     })
 }

@@ -38,7 +38,7 @@ impl Tab {
                 &["Title", "LocalizedSeries"],
                 &["Volume", "Year", "Month", "Day"],
                 &["AlternateSeries", "AlternateNumber", "AlternateCount"],
-                &["StoryArc", "SeriesGroup"],
+                &["StoryArc", "StoryArcNumber", "SeriesGroup"],
                 &["Writer", "Penciller"],
                 &["Inker", "Colorist"],
                 &["Letterer", "CoverArtist"],

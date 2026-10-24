@@ -6,7 +6,7 @@ A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
 
 - **Library browser**: add one or more library folders and browse them in a
   folder tree, as a sortable list or as a grid of covers. Search by series,
-  title, publisher, writer or file name.
+  title, publisher, writer, story arc or file name.
 - **Comic and manga folders**: when you add a folder, say whether it holds
   comics or manga (right-click it to change this later). Comics in a manga
   folder are tagged as manga, read right to left.
@@ -34,6 +34,23 @@ A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
   summary and rating. AniList doesn't list volumes or chapters, so those come
   from the file name (`v01`, `Vol. 3`, `c097`, `Chapter 12`, …) and can be
   corrected before applying. No API key is needed.
+- **Story arcs**: right-click a folder in a manga library and choose
+  **Story Arcs…** to split a series into named arcs. Select a run of files and
+  make them an arc, or type the volumes and chapters each arc spans
+  (`3-14`, `1-6, 8`), so the same arcs fit volumes, chapters or a mix. Applying
+  writes each file's arc and its part in it (`StoryArc`, `StoryArcNumber`).
+  Arcs can be exported to a JSON preset and imported for another copy of the
+  series:
+
+  ```json
+  {
+    "series": "Berserk",
+    "arcs": [
+      { "name": "Black Swordsman", "volumes": "1-3", "chapters": "" },
+      { "name": "Golden Age", "volumes": "4-13", "chapters": "" }
+    ]
+  }
+  ```
 - **Convert to CBZ**: repack CBR (RAR) comics as CBZ.
 - **AVIF compression**: re-encode pages as AVIF to save space, lossy or
   lossless. A page is only replaced if the AVIF version is smaller.

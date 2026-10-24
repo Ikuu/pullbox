@@ -18,6 +18,7 @@ pub mod selection;
 pub mod series_check_dialog;
 pub mod settings_dialog;
 pub mod stats_dialog;
+pub mod story_arcs_dialog;
 pub mod toasts;
 pub mod widgets;
 
@@ -38,5 +39,6 @@ pub use selection::Selection;
 pub use series_check_dialog::{SeriesCheckDialog, SeriesCheckOutcome};
 pub use settings_dialog::{SettingsDialog, SettingsOutcome};
 pub use stats_dialog::StatsDialog;
+pub use story_arcs_dialog::{ArcsOutcome, StoryArcsDialog};
 pub use toasts::{ToastKind, Toasts};
 pub use comicvine_dialog::{ComicVineDialog, FieldValues, ScrapeOutcome, Target as ComicVineTarget};
