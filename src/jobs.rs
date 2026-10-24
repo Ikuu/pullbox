@@ -80,7 +80,7 @@ where
             notify();
         };
         let progress = |done, current| send(JobEvent::Progress { done, total: paths.len(), current });
-        let result = run(&db_path, &paths, &work, &cancelled, &progress);
+        let result = run(kind, &db_path, &paths, &work, &cancelled, &progress);
         send(JobEvent::Finished(result));
     });
 
@@ -88,6 +88,7 @@ where
 }
 
 fn run(
+    kind: JobKind,
     db_path: &Path,
     paths: &[PathBuf],
     work: &dyn Fn(&Path) -> Result<ComicRecord>,
@@ -111,8 +112,11 @@ fn run(
             if record.path != *path {
                 // Still the same comic: keep when it was added.
                 record.added = db.added(path)?.unwrap_or(record.added);
-                db.move_collects(path, &record.path)?;
+                db.move_comic_data(path, &record.path)?;
                 removed.push(path.clone());
+            }
+            if kind == JobKind::CompressAvif && size_before > 0 {
+                db.record_original_size(&record.path, size_before)?;
             }
             db.apply_changes(&[record], &removed)?;
             Ok(size_after)

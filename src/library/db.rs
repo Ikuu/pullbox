@@ -9,8 +9,12 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 use super::model::{ComicMeta, ComicRecord};
 use crate::archive::Format;
 
+/// Tables of extra facts about comics, keyed by path. Their rows follow a
+/// comic when it's renamed and go when it leaves the library.
+const COMIC_DATA_TABLES: [&str; 2] = ["collects", "original_sizes"];
+
 /// Bump when the schema changes and add a step to `migrate`.
-const SCHEMA_VERSION: i32 = 4;
+const SCHEMA_VERSION: i32 = 5;
 
 pub struct Database {
     conn: Connection,
@@ -92,6 +96,16 @@ impl Database {
                  );",
             )?;
         }
+        if version < 5 {
+            // A comic's size before it was first compressed, for the space
+            // saved. Comics compressed before this table existed have none.
+            self.conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS original_sizes (
+                     path TEXT PRIMARY KEY,
+                     size INTEGER NOT NULL
+                 );",
+            )?;
+        }
         // Never lower the version: a newer build may have upgraded the database.
         if version < SCHEMA_VERSION {
             self.conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
@@ -127,8 +141,10 @@ impl Database {
         self.conn.execute("DELETE FROM roots WHERE path = ?1", [path])?;
         self.conn
             .execute("DELETE FROM comics WHERE path LIKE ?1 ESCAPE '\\'", [prefix_pattern(path)])?;
-        self.conn
-            .execute("DELETE FROM collects WHERE path LIKE ?1 ESCAPE '\\'", [prefix_pattern(path)])?;
+        for table in COMIC_DATA_TABLES {
+            self.conn
+                .execute(&format!("DELETE FROM {table} WHERE path LIKE ?1 ESCAPE '\\'"), [prefix_pattern(path)])?;
+        }
         Ok(())
     }
 
@@ -155,11 +171,36 @@ impl Database {
         Ok(())
     }
 
-    /// Keeps a comic's collected issues when its file is renamed (e.g. `.cbr` → `.cbz`).
-    pub fn move_collects(&self, from: &Path, to: &Path) -> Result<()> {
+    /// Keeps what's recorded about a comic (collected issues, original
+    /// size) when its file is renamed, e.g. `.cbr` → `.cbz`.
+    pub fn move_comic_data(&self, from: &Path, to: &Path) -> Result<()> {
+        for table in COMIC_DATA_TABLES {
+            self.conn.execute(
+                &format!("UPDATE OR REPLACE {table} SET path = ?2 WHERE path = ?1"),
+                [path_str(from)?, path_str(to)?],
+            )?;
+        }
+        Ok(())
+    }
+
+    // ----- compression savings -----
+
+    /// Sizes before compression, by path.
+    pub fn original_sizes(&self) -> Result<HashMap<PathBuf, u64>> {
+        let mut stmt = self.conn.prepare("SELECT path, size FROM original_sizes")?;
+        let sizes = stmt
+            .query_map([], |r| Ok((PathBuf::from(r.get::<_, String>(0)?), r.get::<_, i64>(1)? as u64)))?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(sizes)
+    }
+
+    /// Records the size of a comic about to be compressed. Compressing it
+    /// again keeps the larger, earlier size.
+    pub fn record_original_size(&self, path: &Path, size: u64) -> Result<()> {
         self.conn.execute(
-            "UPDATE OR REPLACE collects SET path = ?2 WHERE path = ?1",
-            [path_str(from)?, path_str(to)?],
+            "INSERT INTO original_sizes (path, size) VALUES (?1, ?2)
+             ON CONFLICT (path) DO UPDATE SET size = MAX(size, excluded.size)",
+            params![path_str(path)?, size as i64],
         )?;
         Ok(())
     }
@@ -238,10 +279,11 @@ impl Database {
             }
 
             let mut delete = tx.prepare("DELETE FROM comics WHERE path = ?1")?;
-            let mut delete_collects = tx.prepare("DELETE FROM collects WHERE path = ?1")?;
             for path in removed {
                 delete.execute([path_str(path)?])?;
-                delete_collects.execute([path_str(path)?])?;
+                for table in COMIC_DATA_TABLES {
+                    tx.execute(&format!("DELETE FROM {table} WHERE path = ?1"), [path_str(path)?])?;
+                }
             }
         }
         tx.commit()?;
@@ -328,7 +370,7 @@ mod tests {
         let mut db = Database::open(&dir.path().join("library.db")).unwrap();
         let (cbr, cbz) = (Path::new("/lib/v1.cbr"), Path::new("/lib/v1.cbz"));
         db.set_collects(cbr, " 1-6 ").unwrap();
-        db.move_collects(cbr, cbz).unwrap();
+        db.move_comic_data(cbr, cbz).unwrap();
         assert_eq!(db.all_collects().unwrap().get(cbz).map(String::as_str), Some("1-6"));
 
         db.apply_changes(&[], &[cbz.to_path_buf()]).unwrap();
@@ -337,5 +379,19 @@ mod tests {
         db.set_collects(cbz, "1-6").unwrap();
         db.set_collects(cbz, "").unwrap();
         assert!(db.all_collects().unwrap().is_empty());
+    }
+
+    #[test]
+    fn original_sizes_keep_the_first_compression() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Database::open(&dir.path().join("library.db")).unwrap();
+        let (cbr, cbz) = (Path::new("/lib/a.cbr"), Path::new("/lib/a.cbz"));
+        db.record_original_size(cbr, 100).unwrap();
+        db.move_comic_data(cbr, cbz).unwrap();
+        db.record_original_size(cbz, 60).unwrap();
+        assert_eq!(db.original_sizes().unwrap().get(cbz), Some(&100));
+
+        db.apply_changes(&[], &[cbz.to_path_buf()]).unwrap();
+        assert!(db.original_sizes().unwrap().is_empty());
     }
 }

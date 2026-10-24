@@ -4,6 +4,7 @@ mod db;
 mod model;
 pub mod scanner;
 pub mod series_check;
+pub mod stats;
 
 pub use db::Database;
 pub use model::ComicRecord;

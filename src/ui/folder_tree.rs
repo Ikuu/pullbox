@@ -34,6 +34,8 @@ pub enum TreeAction {
     Refresh(Option<PathBuf>),
     /// Look for missing issues and duplicates in a folder, or the whole library.
     CheckSeries(Option<PathBuf>),
+    /// Show sizes, savings and tagging for a folder, or the whole library.
+    Stats(Option<PathBuf>),
     RemoveRoot(PathBuf),
     OpenInFileManager(PathBuf),
 }
@@ -109,6 +111,10 @@ impl FolderTree {
                 }
                 if ui.add(icons::button("view-statistics", "", "Check Series…")).clicked() {
                     action = Some(TreeAction::CheckSeries(None));
+                    ui.close();
+                }
+                if ui.add(icons::button("office-chart-bar", "", "Library Stats…")).clicked() {
+                    action = Some(TreeAction::Stats(None));
                     ui.close();
                 }
             });
@@ -218,6 +224,10 @@ fn show_node(
             }
             if ui.add(icons::button("view-statistics", "", "Check Series…")).clicked() {
                 *action = Some(TreeAction::CheckSeries(Some(node.path.clone())));
+                ui.close();
+            }
+            if ui.add(icons::button("office-chart-bar", "", "Stats…")).clicked() {
+                *action = Some(TreeAction::Stats(Some(node.path.clone())));
                 ui.close();
             }
             if ui.add(icons::button("folder-open", "", "Open in File Manager")).clicked() {

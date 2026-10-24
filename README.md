@@ -13,6 +13,10 @@ A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
   identical files, for the whole library (File menu) or one folder (right-click
   it). Trades count for the issues they collect, read from "Collects …" in their
   summary or entered by you.
+- **Library stats**: total size, space saved by compression, untagged
+  comics, and size by format, series and publisher, for the whole library
+  (File menu) or one folder (right-click it). Savings are only known for comics
+  compressed since the stats were added.
 - **Details pane**: the selected comic's cover, credits and summary. Toggle it
   with the Details button.
 - **Fits your desktop**: uses the KDE colour scheme, font and icon theme, and

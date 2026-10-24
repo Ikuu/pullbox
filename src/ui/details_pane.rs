@@ -9,11 +9,11 @@ use std::sync::mpsc::{Receiver, channel};
 use egui::{CornerRadius, RichText, Shadow, vec2};
 
 use super::ComicAction;
+use super::widgets::section;
 use crate::archive;
 use crate::comicinfo::ComicInfo;
 use crate::icons;
 use crate::library::ComicRecord;
-use crate::theme;
 use crate::thumbnails::Thumbnails;
 use crate::util::{format_bytes, format_date_time};
 
@@ -270,12 +270,6 @@ fn released(info: Option<&ComicInfo>, year: Option<i32>, month: Option<i32>) -> 
         Some(month) => format!("{} {year}", month.name()),
         None => year.to_string(),
     })
-}
-
-fn section(ui: &mut egui::Ui, title: &str) {
-    ui.add_space(14.0);
-    ui.label(RichText::new(title.to_uppercase()).small().family(theme::bold()).weak());
-    ui.add_space(2.0);
 }
 
 /// A label and value on a grid row; nothing if there's no value.

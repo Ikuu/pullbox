@@ -10,12 +10,12 @@ use crate::comicvine::Lookup;
 use crate::convert::{self, CompressOptions};
 use crate::jobs::{self, JobEvent, JobHandle, JobKind, JobReport};
 use crate::library::scanner::{self, ScanEvent, ScanHandle, ScanReport};
-use crate::library::{ComicRecord, Database};
+use crate::library::{ComicRecord, Database, stats};
 use crate::ui::{
     ComicAction, ComicGrid, ComicTable, ComicVineDialog, ComicVineTarget, ComicView, CompressDialog, CompressOutcome,
     DetailsPane, EditorOutcome, ErrorsDialog, FieldValues, FolderTree, InfoEditor, QuitOutcome, Scope, ScrapeOutcome,
-    Selection, SeriesCheckDialog, SeriesCheckOutcome, SettingsDialog, SettingsOutcome, ToastKind, Toasts, TreeAction,
-    comic_grid, progress_bar,
+    Selection, SeriesCheckDialog, SeriesCheckOutcome, SettingsDialog, SettingsOutcome, StatsDialog, ToastKind, Toasts,
+    TreeAction, comic_grid, progress_bar,
     show_quit_dialog, widgets,
 };
 use crate::icons::{self, Tone};
@@ -59,6 +59,7 @@ pub struct ComicEditorApp {
     settings_dialog: Option<SettingsDialog>,
     compress_dialog: Option<CompressDialog>,
     series_check: Option<SeriesCheckDialog>,
+    stats: Option<StatsDialog>,
     /// A comic to scroll into view in the list or grid next frame.
     scroll_to: Option<PathBuf>,
     /// Last used compression settings, offered again next time.
@@ -128,6 +129,7 @@ impl ComicEditorApp {
             settings_dialog: None,
             compress_dialog: None,
             series_check: None,
+            stats: None,
             scroll_to: None,
             compress_options: CompressOptions::default(),
             scan: None,
@@ -564,24 +566,31 @@ impl ComicEditorApp {
 
     /// Checks the comics in `folder` (and its subfolders), or the whole library.
     fn open_series_check(&mut self, ctx: &egui::Context, folder: Option<PathBuf>) {
-        let comics: Vec<ComicRecord> = self
-            .comics
-            .iter()
-            .filter(|c| folder.as_ref().is_none_or(|f| c.path.starts_with(f)))
-            .cloned()
-            .collect();
         let entered = match self.db.all_collects() {
             Ok(entered) => entered,
             Err(e) => return self.report_error(Err(e)),
         };
-        let scope = match &folder {
-            Some(folder) => {
-                let name = folder.file_name().unwrap_or(folder.as_os_str()).to_string_lossy();
-                format!("“{name}” and its subfolders")
-            }
-            None => "the whole library".to_owned(),
+        let comics = self.comics_under(folder.as_deref());
+        self.series_check = Some(SeriesCheckDialog::new(scope_label(folder.as_deref()), comics, entered, ctx));
+    }
+
+    /// Opens Library Stats for `folder` (and its subfolders), or the whole library.
+    fn open_stats(&mut self, folder: Option<PathBuf>) {
+        let original_sizes = match self.db.original_sizes() {
+            Ok(sizes) => sizes,
+            Err(e) => return self.report_error(Err(e)),
         };
-        self.series_check = Some(SeriesCheckDialog::new(scope, comics, entered, ctx));
+        let comics = self.comics_under(folder.as_deref());
+        let stats = stats::compute(&comics, &original_sizes, self.recent_since);
+        self.stats = Some(StatsDialog::new(scope_label(folder.as_deref()), stats, self.settings.recent_days));
+    }
+
+    fn comics_under(&self, folder: Option<&Path>) -> Vec<ComicRecord> {
+        self.comics
+            .iter()
+            .filter(|c| folder.is_none_or(|f| c.path.starts_with(f)))
+            .cloned()
+            .collect()
     }
 
     fn show_series_check(&mut self, ctx: &egui::Context) {
@@ -669,6 +678,7 @@ impl ComicEditorApp {
             }
             TreeAction::Refresh(folder) => self.refresh(ctx, folder),
             TreeAction::CheckSeries(folder) => self.open_series_check(ctx, folder),
+            TreeAction::Stats(folder) => self.open_stats(folder),
             TreeAction::RemoveRoot(root) => self.remove_root(&root),
             TreeAction::OpenInFileManager(dir) => self.open_dir(&dir),
         }
@@ -706,6 +716,10 @@ impl ComicEditorApp {
                 if ui.add_enabled(can_check, icons::button("view-statistics", "", "Check Series…")).clicked() {
                     ui.close();
                     self.open_series_check(ui.ctx(), None);
+                }
+                if ui.add_enabled(can_check, icons::button("office-chart-bar", "", "Library Stats…")).clicked() {
+                    ui.close();
+                    self.open_stats(None);
                 }
                 ui.separator();
                 if ui.add(icons::button("configure", "", "Settings…")).clicked() {
@@ -1034,8 +1048,22 @@ impl eframe::App for ComicEditorApp {
         self.show_settings_dialog(&ctx);
         self.show_errors_dialog(&ctx);
         self.show_series_check(&ctx);
+        if let Some(stats) = &mut self.stats && !stats.show(&ctx) {
+            self.stats = None;
+        }
         self.handle_close_request(&ctx);
         self.toasts.show(&ctx, status_bar.response.rect.height());
+    }
+}
+
+/// "the whole library", or "“Batman” and its subfolders".
+fn scope_label(folder: Option<&Path>) -> String {
+    match folder {
+        Some(folder) => {
+            let name = folder.file_name().unwrap_or(folder.as_os_str()).to_string_lossy();
+            format!("“{name}” and its subfolders")
+        }
+        None => "the whole library".to_owned(),
     }
 }
 
