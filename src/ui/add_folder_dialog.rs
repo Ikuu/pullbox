@@ -60,6 +60,6 @@ impl AddFolderDialog {
 fn describe(kind: LibraryKind) -> &'static str {
     match kind {
         LibraryKind::Comic => "Looked up on ComicVine.",
-        LibraryKind::Manga => "Tagged as manga, read right to left.",
+        LibraryKind::Manga => "Looked up on AniList, and tagged as manga read right to left.",
     }
 }

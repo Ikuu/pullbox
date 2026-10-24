@@ -1,3 +1,4 @@
+mod anilist;
 mod app;
 mod archive;
 mod comicinfo;
@@ -35,7 +36,7 @@ fn main() -> eframe::Result {
         "Comic Editor",
         options,
         Box::new(|cc| {
-            // Lets egui::Image load ComicVine cover URLs.
+            // Lets egui::Image load ComicVine and AniList cover URLs.
             egui_extras::install_image_loaders(&cc.egui_ctx);
             theme::init(&cc.egui_ctx);
             let mut app = ComicEditorApp::new(library::default_db_path(), &cc.egui_ctx)?;

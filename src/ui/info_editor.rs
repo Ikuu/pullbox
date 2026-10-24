@@ -35,7 +35,7 @@ impl Tab {
         match self {
             Tab::Details => &[
                 &["Series", "Number", "Count"],
-                &["Title"],
+                &["Title", "LocalizedSeries"],
                 &["Volume", "Year", "Month", "Day"],
                 &["AlternateSeries", "AlternateNumber", "AlternateCount"],
                 &["StoryArc", "SeriesGroup"],
@@ -67,8 +67,8 @@ pub enum EditorOutcome {
         /// `(element name, new value)`; an empty value clears the field.
         changes: Vec<(&'static str, String)>,
     },
-    /// Look the comics up on ComicVine; the editor stays open underneath.
-    LookUpComicVine,
+    /// Look the comics up on ComicVine or AniList; the editor stays open underneath.
+    LookUp,
     Cancel,
 }
 
@@ -96,12 +96,19 @@ pub struct InfoEditor {
     read_only_reason: Option<String>,
     fields: Vec<FieldState>,
     tab: Tab,
+    /// Where the comics are looked up: "ComicVine" or "AniList".
+    lookup_source: &'static str,
 }
 
 const DIALOG_WIDTH: f32 = 760.0;
 
 impl InfoEditor {
-    pub fn new(targets: Vec<PathBuf>, infos: &[ComicInfo], read_only_reason: Option<String>) -> Self {
+    pub fn new(
+        targets: Vec<PathBuf>,
+        infos: &[ComicInfo],
+        read_only_reason: Option<String>,
+        lookup_source: &'static str,
+    ) -> Self {
         let fields = FIELDS
             .iter()
             .map(|def| {
@@ -113,7 +120,7 @@ impl InfoEditor {
             })
             .collect();
 
-        Self { targets, read_only_reason, fields, tab: Tab::Details }
+        Self { targets, read_only_reason, fields, tab: Tab::Details, lookup_source }
     }
 
     pub fn targets(&self) -> &[PathBuf] {
@@ -206,15 +213,16 @@ impl InfoEditor {
                 if ui.button("Cancel").clicked() {
                     outcome = Some(EditorOutcome::Cancel);
                 }
+                let source = self.lookup_source;
                 let lookup = ui
-                    .add_enabled(self.read_only_reason.is_none(), egui::Button::new("Look Up on ComicVine…"))
+                    .add_enabled(self.read_only_reason.is_none(), egui::Button::new(format!("Look Up on {source}…")))
                     .on_hover_text(if self.targets.len() == 1 {
-                        "Fill the form from ComicVine, then review and save"
+                        format!("Fill the form from {source}, then review and save")
                     } else {
-                        "Match each comic on ComicVine and save directly (unsaved edits here are discarded)"
+                        format!("Match each comic on {source} and save directly (unsaved edits here are discarded)")
                     });
                 if lookup.clicked() {
-                    outcome = Some(EditorOutcome::LookUpComicVine);
+                    outcome = Some(EditorOutcome::LookUp);
                 }
             });
         });

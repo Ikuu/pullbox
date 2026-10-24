@@ -64,6 +64,7 @@ use FieldKind::*;
 pub const FIELDS: &[FieldDef] = &[
     field("Title", "Title", Text),
     field("Series", "Series", Text),
+    field("LocalizedSeries", "Localized Series", Text),
     field("Number", "Number", Text),
     field("Count", "of", Integer),
     field("Volume", "Volume", Integer),

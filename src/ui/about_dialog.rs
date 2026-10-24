@@ -112,6 +112,8 @@ impl AboutDialog {
         ui.horizontal(|ui| {
             ui.weak("Comic metadata is provided by");
             ui.hyperlink_to("ComicVine", "https://comicvine.gamespot.com");
+            ui.weak("and manga metadata by");
+            ui.hyperlink_to("AniList", "https://anilist.co");
         });
 
         section(ui, "Files");

@@ -2,6 +2,7 @@
 
 pub mod about_dialog;
 pub mod add_folder_dialog;
+pub mod anilist_dialog;
 pub mod comic_actions;
 pub mod comic_grid;
 pub mod comic_table;
@@ -22,6 +23,7 @@ pub mod widgets;
 
 pub use about_dialog::AboutDialog;
 pub use add_folder_dialog::{AddFolderDialog, AddFolderOutcome};
+pub use anilist_dialog::{AniListDialog, Target as AniListTarget};
 pub use comic_actions::{ComicAction, ComicView};
 pub use comic_grid::ComicGrid;
 pub use comic_table::ComicTable;

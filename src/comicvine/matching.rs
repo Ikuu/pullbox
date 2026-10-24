@@ -118,7 +118,7 @@ pub fn rank_volumes<'a>(volumes: &'a [Volume], lookup: &Lookup) -> Vec<&'a Volum
     scored.into_iter().map(|(_, volume)| volume).collect()
 }
 
-fn bracketed_year(text: &str) -> Option<i32> {
+pub fn bracketed_year(text: &str) -> Option<i32> {
     text.split(['(', '['])
         .skip(1)
         .filter_map(|part| part.split([')', ']']).next())
@@ -126,7 +126,7 @@ fn bracketed_year(text: &str) -> Option<i32> {
         .find(|year| (1900..=2100).contains(year))
 }
 
-fn strip_bracketed(text: &str) -> String {
+pub fn strip_bracketed(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut depth = 0u32;
     for c in text.chars() {

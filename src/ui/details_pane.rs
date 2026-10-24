@@ -204,7 +204,7 @@ impl DetailsPane {
             }
         } else if !comic.meta.has_info {
             ui.add_space(8.0);
-            ui.weak("This comic has no ComicInfo.xml. Edit its info or look it up on ComicVine to add one.");
+            ui.weak("This comic has no ComicInfo.xml. Edit its info or look it up to add one.");
         }
 
         section(ui, "File");

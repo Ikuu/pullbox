@@ -29,6 +29,11 @@ A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
   several comics at once.
 - **ComicVine lookup**: match comics against [ComicVine](https://comicvine.gamespot.com/)
   and fill in their metadata.
+- **AniList lookup**: match manga against [AniList](https://anilist.co/) and
+  fill in the series' metadata: titles, story and art credits, genres, tags,
+  summary and rating. AniList doesn't list volumes or chapters, so those come
+  from the file name (`v01`, `Vol. 3`, `c097`, `Chapter 12`, …) and can be
+  corrected before applying. No API key is needed.
 - **Convert to CBZ**: repack CBR (RAR) comics as CBZ.
 - **AVIF compression**: re-encode pages as AVIF to save space, lossy or
   lossless. A page is only replaced if the AVIF version is smaller.
@@ -119,8 +124,8 @@ cargo run --release
    the background.
 2. To use ComicVine lookups, get a free API key from
    <https://comicvine.gamespot.com/api/> and enter it in **File → Settings…**.
-3. Right-click comics to edit their info, look them up on ComicVine, convert
-   them or compress them.
+3. Right-click comics to edit their info, look them up (on ComicVine, or
+   AniList for manga), convert them or compress them.
 
 The library is rescanned on every launch. Only new or changed files are read
 again, so this is quick. Hidden files and folders (names starting with `.`)
@@ -162,11 +167,11 @@ included in Arch's `dav1d` package).
 
 ```sh
 cargo test                # unit tests, no other tools needed
-cargo test -- --ignored   # the tests that need avifenc or contact ComicVine
+cargo test -- --ignored   # the tests that need avifenc or contact ComicVine or AniList
 cargo clippy --all-targets
 ```
 
-GitHub Actions runs clippy and the tests (except the ComicVine one) on every
+GitHub Actions runs clippy and the tests (except the ignored ones) on every
 push to `main` and on pull requests.
 
 ### Releasing

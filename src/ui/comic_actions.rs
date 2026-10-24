@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use super::Selection;
 use crate::icons;
-use crate::library::ComicRecord;
+use crate::library::{ComicRecord, Root, kind_of};
 
 /// Something the user asked to do with comics.
 pub enum ComicAction {
@@ -13,7 +13,8 @@ pub enum ComicAction {
     EditInfo(Vec<PathBuf>),
     ConvertToCbz(Vec<PathBuf>),
     CompressAvif(Vec<PathBuf>),
-    LookUpComicVine(Vec<PathBuf>),
+    /// Look up on ComicVine, or AniList for manga.
+    LookUp(Vec<PathBuf>),
     OpenInFileManager(PathBuf),
 }
 
@@ -23,6 +24,8 @@ pub struct ComicView<'a> {
     /// Indices into `comics`, in display order.
     pub visible: &'a [usize],
     pub selection: &'a mut Selection,
+    /// The library folders, which decide where comics are looked up.
+    pub roots: &'a [Root],
 }
 
 impl ComicView<'_> {
@@ -80,8 +83,9 @@ impl ComicView<'_> {
         if ui.add(icons::button("document-edit", "", &edit_label).shortcut_text("Ctrl+I")).clicked() {
             return Some(ComicAction::EditInfo(self.selected()));
         }
-        if ui.add(icons::button("globe", "", "Look Up on ComicVine…")).clicked() {
-            return Some(ComicAction::LookUpComicVine(self.selected()));
+        let source = kind_of(self.roots, &comic.path).lookup_source();
+        if ui.add(icons::button("globe", "", &format!("Look Up on {source}…"))).clicked() {
+            return Some(ComicAction::LookUp(self.selected()));
         }
         ui.separator();
         if ui.add(icons::button("convert", "", "Convert to CBZ")).clicked() {

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 
+use crate::anilist::MangaLookup;
 use crate::archive::{self, Format};
 use crate::comicvine::Lookup;
 use crate::convert::{self, CompressOptions};
@@ -12,7 +13,7 @@ use crate::jobs::{self, JobEvent, JobHandle, JobKind, JobReport};
 use crate::library::scanner::{self, ScanEvent, ScanHandle, ScanReport};
 use crate::library::{ComicRecord, Database, LibraryKind, Root, kind_of, stats};
 use crate::ui::{
-    AboutDialog, AddFolderDialog, AddFolderOutcome, ComicAction, ComicGrid, ComicTable, ComicVineDialog, ComicVineTarget, ComicView, CompressDialog, CompressOutcome,
+    AboutDialog, AddFolderDialog, AddFolderOutcome, AniListDialog, AniListTarget, ComicAction, ComicGrid, ComicTable, ComicVineDialog, ComicVineTarget, ComicView, CompressDialog, CompressOutcome,
     DetailsPane, EditorOutcome, ErrorsDialog, FieldValues, FolderTree, InfoEditor, QuitOutcome, Scope, ScrapeOutcome,
     Selection, SeriesCheckDialog, SeriesCheckOutcome, SettingsDialog, SettingsOutcome, StatsDialog, ToastKind, Toasts,
     TreeAction, comic_grid, progress_bar,
@@ -55,9 +56,10 @@ pub struct ComicEditorApp {
 
     editor: Option<InfoEditor>,
     comicvine_dialog: Option<ComicVineDialog>,
-    /// The ComicVine dialog was opened from the editor and fills its form
-    /// instead of saving.
-    comicvine_fills_editor: bool,
+    anilist_dialog: Option<AniListDialog>,
+    /// The ComicVine or AniList dialog was opened from the editor and fills
+    /// its form instead of saving.
+    lookup_fills_editor: bool,
     settings_dialog: Option<SettingsDialog>,
     compress_dialog: Option<CompressDialog>,
     series_check: Option<SeriesCheckDialog>,
@@ -129,7 +131,8 @@ impl ComicEditorApp {
             settings,
             editor: None,
             comicvine_dialog: None,
-            comicvine_fills_editor: false,
+            anilist_dialog: None,
+            lookup_fills_editor: false,
             settings_dialog: None,
             compress_dialog: None,
             series_check: None,
@@ -308,7 +311,8 @@ impl ComicEditorApp {
 
         let all_manga = paths.iter().all(|p| self.kind_of(p) == LibraryKind::Manga);
         let untagged = infos.iter().all(|info| info.get("Manga").is_none());
-        let mut editor = InfoEditor::new(paths, &infos, read_only);
+        let source = self.kind_of(&paths[0]).lookup_source();
+        let mut editor = InfoEditor::new(paths, &infos, read_only, source);
         if all_manga && untagged {
             // Offered as an unsaved change, so it's visible and can be undone.
             editor.fill(&[("Manga", MANGA_DEFAULT.to_owned())]);
@@ -331,34 +335,59 @@ impl ComicEditorApp {
         self.start_job(ctx, JobKind::SaveInfo, targets, work);
     }
 
-    // ----- ComicVine -----
+    // ----- ComicVine and AniList -----
 
-    fn open_comicvine(&mut self, ctx: &egui::Context, paths: Vec<PathBuf>) {
+    /// Looks comics up on ComicVine, or manga on AniList.
+    fn open_lookup(&mut self, ctx: &egui::Context, paths: Vec<PathBuf>) {
         if self.job_running() || paths.is_empty() {
             return;
         }
-        let Some(api_key) = self.comicvine_api_key() else { return };
+        let manga = paths.iter().filter(|p| self.kind_of(p) == LibraryKind::Manga).count();
+        match manga {
+            0 => self.open_comicvine(ctx, paths),
+            n if n == paths.len() => self.open_anilist(ctx, paths),
+            _ => self.notify(ToastKind::Info, "Look up comics and manga separately"),
+        }
+    }
 
-        // Keep the user's (display) order; CBRs can't be written, so skip them.
+    /// The comics at `paths` that can be written, in the user's (display)
+    /// order. CBRs can't be, so they're skipped with a warning.
+    fn writable_comics(&mut self, paths: &[PathBuf]) -> Vec<ComicRecord> {
         let by_path: HashMap<&Path, &ComicRecord> = self.comics.iter().map(|c| (c.path.as_path(), c)).collect();
         let comics: Vec<&ComicRecord> = paths.iter().filter_map(|p| by_path.get(p.as_path()).copied()).collect();
-        let writable: Vec<&ComicRecord> = comics.iter().copied().filter(|c| c.format != Format::Cbr).collect();
-        if writable.len() < comics.len() {
-            let skipped = comics.len() - writable.len();
-            let message = format!("Skipped {skipped} CBR file(s) — convert them to CBZ first");
-            // Not `notify`: `comics` still borrows `self.comics`.
-            self.toasts.push(ToastKind::Warning, message.clone());
-            self.status = message;
+        let writable: Vec<ComicRecord> = comics.iter().filter(|c| c.format != Format::Cbr).map(|&c| c.clone()).collect();
+        let skipped = comics.len() - writable.len();
+        if skipped > 0 {
+            self.notify(ToastKind::Warning, format!("Skipped {skipped} CBR file(s) — convert them to CBZ first"));
         }
-        let targets: Vec<ComicVineTarget> = writable
-            .into_iter()
+        writable
+    }
+
+    fn open_comicvine(&mut self, ctx: &egui::Context, paths: Vec<PathBuf>) {
+        let Some(api_key) = self.comicvine_api_key() else { return };
+        let targets: Vec<ComicVineTarget> = self
+            .writable_comics(&paths)
+            .iter()
             .map(|c| ComicVineTarget { path: c.path.clone(), file_name: c.file_name(), lookup: Lookup::for_comic(c) })
             .collect();
         if targets.is_empty() {
             return;
         }
         self.comicvine_dialog = Some(ComicVineDialog::new(targets, api_key, "Apply", ctx));
-        self.comicvine_fills_editor = false;
+        self.lookup_fills_editor = false;
+    }
+
+    fn open_anilist(&mut self, ctx: &egui::Context, paths: Vec<PathBuf>) {
+        let targets: Vec<AniListTarget> = self
+            .writable_comics(&paths)
+            .iter()
+            .map(|c| AniListTarget { path: c.path.clone(), file_name: c.file_name(), lookup: MangaLookup::for_comic(c) })
+            .collect();
+        if targets.is_empty() {
+            return;
+        }
+        self.anilist_dialog = Some(AniListDialog::new(targets, "Apply", ctx));
+        self.lookup_fills_editor = false;
     }
 
     /// Looks up the comic being edited, searching with the form's current values.
@@ -368,11 +397,30 @@ impl ComicEditorApp {
         if paths.len() > 1 {
             // Each comic gets its own match, which one shared form can't show.
             self.editor = None;
-            return self.open_comicvine(ctx, paths);
+            return self.open_lookup(ctx, paths);
         }
 
         let path = paths[0].clone();
         let record = self.comics.iter().find(|c| c.path == path);
+        let file_name = record.map(ComicRecord::file_name).unwrap_or_default();
+        if self.kind_of(&path) == LibraryKind::Manga {
+            let mut lookup = record.map(MangaLookup::for_comic).unwrap_or_default();
+            if !editor.value("Series").is_empty() {
+                lookup.series = editor.value("Series").to_owned();
+            }
+            if !editor.value("Volume").is_empty() {
+                lookup.volume = editor.value("Volume").parse().ok();
+            }
+            if !editor.value("Number").is_empty() {
+                lookup.chapter = editor.value("Number").to_owned();
+            }
+            lookup.year = editor.value("Year").parse().ok().or(lookup.year);
+            let target = AniListTarget { path, file_name, lookup };
+            self.anilist_dialog = Some(AniListDialog::new(vec![target], "Use These Values", ctx));
+            self.lookup_fills_editor = true;
+            return;
+        }
+
         let mut lookup = record.map(Lookup::for_comic).unwrap_or_default();
         for (field, value) in [("Series", &mut lookup.series), ("Number", &mut lookup.number)] {
             if !editor.value(field).is_empty() {
@@ -380,12 +428,11 @@ impl ComicEditorApp {
             }
         }
         lookup.year = editor.value("Year").parse().ok().or(lookup.year);
-        let file_name = record.map(ComicRecord::file_name).unwrap_or_default();
 
         let Some(api_key) = self.comicvine_api_key() else { return };
         let target = ComicVineTarget { path, file_name, lookup };
         self.comicvine_dialog = Some(ComicVineDialog::new(vec![target], api_key, "Use These Values", ctx));
-        self.comicvine_fills_editor = true;
+        self.lookup_fills_editor = true;
     }
 
     /// The API key, or `None` after asking the user to enter one.
@@ -398,17 +445,27 @@ impl ComicEditorApp {
         Some(self.settings.comicvine_api_key.clone())
     }
 
-    fn show_comicvine_dialog(&mut self, ctx: &egui::Context) {
-        let Some(dialog) = &mut self.comicvine_dialog else { return };
-        match dialog.show(ctx) {
+    fn show_lookup_dialogs(&mut self, ctx: &egui::Context) {
+        let outcome = if let Some(dialog) = &mut self.comicvine_dialog {
+            dialog.show(ctx)
+        } else if let Some(dialog) = &mut self.anilist_dialog {
+            dialog.show(ctx)
+        } else {
+            return;
+        };
+        match outcome {
             Some(ScrapeOutcome::Apply(edits)) => {
                 self.comicvine_dialog = None;
+                self.anilist_dialog = None;
                 match (&mut self.editor, edits.first()) {
-                    (Some(editor), Some((_, values))) if self.comicvine_fills_editor => editor.fill(values),
+                    (Some(editor), Some((_, values))) if self.lookup_fills_editor => editor.fill(values),
                     _ => self.save_info(ctx, edits),
                 }
             }
-            Some(ScrapeOutcome::Cancel) => self.comicvine_dialog = None,
+            Some(ScrapeOutcome::Cancel) => {
+                self.comicvine_dialog = None;
+                self.anilist_dialog = None;
+            }
             None => {}
         }
     }
@@ -517,6 +574,7 @@ impl ComicEditorApp {
         self.editor.is_some()
             || self.compress_dialog.is_some()
             || self.comicvine_dialog.is_some()
+            || self.anilist_dialog.is_some()
             || self.settings_dialog.is_some()
             || self.about.is_some()
             || self.add_folder.is_some()
@@ -559,9 +617,10 @@ impl ComicEditorApp {
     }
 
     fn show_editor(&mut self, ctx: &egui::Context) {
-        // Hidden while a dialog it opened (ComicVine, or Settings to enter an
-        // API key) is on top, so the two don't both react to keys like Escape.
-        if self.comicvine_dialog.is_some() || self.settings_dialog.is_some() {
+        // Hidden while a dialog it opened (ComicVine, AniList, or Settings to
+        // enter an API key) is on top, so the two don't both react to keys
+        // like Escape.
+        if self.comicvine_dialog.is_some() || self.anilist_dialog.is_some() || self.settings_dialog.is_some() {
             return;
         }
         let Some(editor) = &mut self.editor else { return };
@@ -571,7 +630,7 @@ impl ComicEditorApp {
                 let edits = targets.into_iter().map(|path| (path, changes.clone())).collect();
                 self.save_info(ctx, edits);
             }
-            Some(EditorOutcome::LookUpComicVine) => self.look_up_from_editor(ctx),
+            Some(EditorOutcome::LookUp) => self.look_up_from_editor(ctx),
             Some(EditorOutcome::Cancel) => self.editor = None,
             None => {}
         }
@@ -732,7 +791,7 @@ impl ComicEditorApp {
             ComicAction::EditInfo(paths) => self.open_editor(paths),
             ComicAction::ConvertToCbz(paths) => self.convert_to_cbz(ctx, paths),
             ComicAction::CompressAvif(paths) => self.open_compress_dialog(paths),
-            ComicAction::LookUpComicVine(paths) => self.open_comicvine(ctx, paths),
+            ComicAction::LookUp(paths) => self.open_lookup(ctx, paths),
             ComicAction::OpenInFileManager(dir) => self.open_dir(&dir),
         }
     }
@@ -800,7 +859,7 @@ impl ComicEditorApp {
             type MakeAction = fn(Vec<PathBuf>) -> ComicAction;
             let actions: [(&str, &str, &str, MakeAction); 4] = [
                 ("document-edit", "Edit Info", "Edit the selected comics' info (Ctrl+I)", ComicAction::EditInfo),
-                ("globe", "Look Up", "Look up the selected comics on ComicVine", ComicAction::LookUpComicVine),
+                ("globe", "Look Up", "Look up the selected comics on ComicVine, or manga on AniList", ComicAction::LookUp),
                 ("convert", "Convert", "Convert the selected comics to CBZ", ComicAction::ConvertToCbz),
                 ("archive-insert", "Compress", "Compress the selected comics' pages to AVIF", ComicAction::CompressAvif),
             ];
@@ -967,6 +1026,7 @@ impl ComicEditorApp {
             comics: &self.comics,
             visible: &self.visible,
             selection: &mut self.selection,
+            roots: &self.roots,
         };
         match self.view_mode {
             ViewMode::Grid => self.grid.show(ui, &mut view, &mut self.thumbnails, scroll_to),
@@ -1093,7 +1153,7 @@ impl eframe::App for ComicEditorApp {
 
         self.show_editor(&ctx);
         self.show_compress_dialog(&ctx);
-        self.show_comicvine_dialog(&ctx);
+        self.show_lookup_dialogs(&ctx);
         self.show_settings_dialog(&ctx);
         self.show_errors_dialog(&ctx);
         self.show_series_check(&ctx);

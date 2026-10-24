@@ -6,8 +6,8 @@ mod matching;
 mod worker;
 
 pub use api::{Issue, Volume};
-pub use mapping::comicinfo_values;
-pub use matching::Lookup;
+pub use mapping::{comicinfo_values, html_to_text};
+pub use matching::{Lookup, bracketed_year, normalize_name, normalize_number, strip_bracketed};
 pub use worker::{Event, Request, Session};
 
 /// Where users get an API key.

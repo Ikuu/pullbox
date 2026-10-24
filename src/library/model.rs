@@ -43,6 +43,14 @@ impl LibraryKind {
         }
     }
 
+    /// Where comics of this kind are looked up.
+    pub fn lookup_source(self) -> &'static str {
+        match self {
+            LibraryKind::Comic => "ComicVine",
+            LibraryKind::Manga => "AniList",
+        }
+    }
+
     /// A first guess for a newly added folder, from its name.
     pub fn guess(folder: &Path) -> Self {
         let name = folder.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
