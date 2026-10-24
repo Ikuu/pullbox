@@ -1,10 +1,12 @@
 name: Release
 
-# Pushing a tag like v0.2.0 builds the Linux binary and publishes it as a
-# GitHub release.
+# Pushing a tag like v0.2.0 builds the Linux tarball and AppImage and
+# publishes them as a GitHub release. Running the workflow by hand (Actions >
+# Release > Run workflow) builds both without publishing, to try them out.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,14 +18,22 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - run: sudo apt-get update && sudo apt-get install -y libdav1d-dev
+      # dav1d to build against; unrar and avifenc to bundle in the AppImage.
+      - run: sudo apt-get update && sudo apt-get install -y libdav1d-dev libavif-bin unrar
       - uses: dtolnay/rust-toolchain@stable
+      # Generates the third-party licence notices.
+      - run: cargo install cargo-about --locked --features cli
 
-      - name: Check the tag matches Cargo.toml
+      - name: Read the version
         run: |
           version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
-          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
-            echo "Tag $GITHUB_REF_NAME doesn't match version $version in Cargo.toml" >&2
+          echo "VERSION=v$version" >> "$GITHUB_ENV"
+
+      - name: Check the tag matches Cargo.toml
+        if: github.ref_type == 'tag'
+        run: |
+          if [ "$GITHUB_REF_NAME" != "$VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match version $VERSION in Cargo.toml" >&2
             exit 1
           fi
 
@@ -31,16 +41,36 @@ jobs:
 
       - name: Package
         run: |
-          name="comic-editor-$GITHUB_REF_NAME-linux-x86_64"
-          mkdir -p "$name/packaging"
-          cp target/release/comic-editor install.sh README.md "$name/"
+          name="comic-editor-$VERSION-linux-x86_64"
+          mkdir -p "$name/packaging" dist
+          cp target/release/comic-editor install.sh README.md LICENSE "$name/"
           cp packaging/comic-editor.svg packaging/comic-editor.desktop "$name/packaging/"
-          tar czf "$name.tar.gz" "$name"
-          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+          packaging/third-party-licenses.sh "$name/THIRD_PARTY_LICENSES.txt"
+          tar czf "dist/$name.tar.gz" "$name"
+
+      - name: Build the AppImage
+        run: |
+          curl -fsSL -o linuxdeploy \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          # The runner has no FUSE, so linuxdeploy unpacks itself to run.
+          APPIMAGE_EXTRACT_AND_RUN=1 LINUXDEPLOY="$PWD/linuxdeploy" packaging/appimage.sh
+          mv target/appimage/*.AppImage dist/
+
+      - name: Checksums
+        working-directory: dist
+        run: for file in *; do sha256sum "$file" > "$file.sha256"; done
+
+      - uses: actions/upload-artifact@v4
+        if: github.ref_type != 'tag'
+        with:
+          name: comic-editor-${{ env.VERSION }}
+          path: dist/
 
       - name: Publish
+        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" comic-editor-*.tar.gz comic-editor-*.tar.gz.sha256 \
+          gh release create "$GITHUB_REF_NAME" dist/* \
             --title "Comic Editor $GITHUB_REF_NAME" --generate-notes

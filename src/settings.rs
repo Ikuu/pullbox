@@ -91,7 +91,8 @@ fn write_private(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     options.open(path)?.write_all(contents)
 }
 
-fn settings_path() -> Option<PathBuf> {
+/// Where the settings are saved (e.g. `~/.config/comic-editor/settings.json`).
+pub fn settings_path() -> Option<PathBuf> {
     crate::util::project_dirs().map(|dirs| dirs.config_dir().join("settings.json"))
 }
 

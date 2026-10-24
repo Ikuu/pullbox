@@ -1,0 +1,11 @@
+Comic Editor includes the Rust libraries listed below. Each is distributed
+under the licence it is listed with; the full licence texts follow.
+{{#each licenses}}
+
+==============================================================================
+{{{name}}}
+Used by:{{#each used_by}} {{crate.name}} {{crate.version}}{{#unless @last}},{{/unless}}{{/each}}
+==============================================================================
+
+{{{text}}}
+{{/each}}

@@ -3,13 +3,14 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 use walkdir::WalkDir;
 
 use crate::archive;
+use crate::util::tool;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CompressOptions {
@@ -26,7 +27,7 @@ impl Default for CompressOptions {
 
 /// Fails with installation instructions if `avifenc` isn't available.
 pub fn check_avifenc() -> Result<()> {
-    Command::new("avifenc")
+    tool("avifenc")
         .arg("--version")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -80,7 +81,7 @@ fn encode_replacing(src: &Path, options: CompressOptions) -> Result<bool> {
 }
 
 fn run_avifenc(src: &Path, dst: &Path, options: CompressOptions) -> bool {
-    let mut cmd = Command::new("avifenc");
+    let mut cmd = tool("avifenc");
     cmd.args(["-j", "1"]);
     if options.lossless {
         cmd.arg("--lossless");

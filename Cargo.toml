@@ -3,6 +3,8 @@ name = "comic-editor"
 version = "0.2.0"
 description = "Manage, tag and compress CBZ/CBR comic libraries"
 edition = "2024"
+license = "MIT"
+repository = "https://github.com/Ikuu/comic-editor"
 
 [dependencies]
 anyhow = "1.0.104"

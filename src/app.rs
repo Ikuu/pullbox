@@ -12,7 +12,7 @@ use crate::jobs::{self, JobEvent, JobHandle, JobKind, JobReport};
 use crate::library::scanner::{self, ScanEvent, ScanHandle, ScanReport};
 use crate::library::{ComicRecord, Database, stats};
 use crate::ui::{
-    ComicAction, ComicGrid, ComicTable, ComicVineDialog, ComicVineTarget, ComicView, CompressDialog, CompressOutcome,
+    AboutDialog, ComicAction, ComicGrid, ComicTable, ComicVineDialog, ComicVineTarget, ComicView, CompressDialog, CompressOutcome,
     DetailsPane, EditorOutcome, ErrorsDialog, FieldValues, FolderTree, InfoEditor, QuitOutcome, Scope, ScrapeOutcome,
     Selection, SeriesCheckDialog, SeriesCheckOutcome, SettingsDialog, SettingsOutcome, StatsDialog, ToastKind, Toasts,
     TreeAction, comic_grid, progress_bar,
@@ -60,6 +60,7 @@ pub struct ComicEditorApp {
     compress_dialog: Option<CompressDialog>,
     series_check: Option<SeriesCheckDialog>,
     stats: Option<StatsDialog>,
+    about: Option<AboutDialog>,
     /// A comic to scroll into view in the list or grid next frame.
     scroll_to: Option<PathBuf>,
     /// Last used compression settings, offered again next time.
@@ -130,6 +131,7 @@ impl ComicEditorApp {
             compress_dialog: None,
             series_check: None,
             stats: None,
+            about: None,
             scroll_to: None,
             compress_options: CompressOptions::default(),
             scan: None,
@@ -505,6 +507,7 @@ impl ComicEditorApp {
             || self.compress_dialog.is_some()
             || self.comicvine_dialog.is_some()
             || self.settings_dialog.is_some()
+            || self.about.is_some()
             || self.show_errors
             || self.confirm_quit
     }
@@ -729,6 +732,12 @@ impl ComicEditorApp {
                 ui.separator();
                 if ui.add(icons::button("application-exit", "", "Quit")).clicked() {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                }
+            });
+            ui.menu_button("Help", |ui| {
+                if ui.add(icons::button("help-about", "", "About Comic Editor")).clicked() {
+                    ui.close();
+                    self.about = Some(AboutDialog::new(self.db_path.clone()));
                 }
             });
         });
@@ -1050,6 +1059,9 @@ impl eframe::App for ComicEditorApp {
         self.show_series_check(&ctx);
         if let Some(stats) = &mut self.stats && !stats.show(&ctx) {
             self.stats = None;
+        }
+        if let Some(about) = &mut self.about && about.show(&ctx) {
+            self.about = None;
         }
         self.handle_close_request(&ctx);
         self.toasts.show(&ctx, status_bar.response.rect.height());

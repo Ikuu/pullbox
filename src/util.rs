@@ -1,7 +1,8 @@
 //! Small helpers shared across the app.
 
 use std::cmp::Ordering;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::OnceLock;
 
 use chrono::Locale;
@@ -129,6 +130,20 @@ pub fn open_in_file_manager(dir: &Path) -> std::io::Result<()> {
     let program = "xdg-open";
 
     std::process::Command::new(program).arg(dir).spawn().map(|_| ())
+}
+
+/// A command running one of the external tools (`unrar`, `avifenc`).
+pub fn tool(name: &str) -> Command {
+    Command::new(tool_path(name).unwrap_or_else(|| PathBuf::from(name)))
+}
+
+/// Where the external tool `name` is: next to our own binary, as in the
+/// AppImage, or else on `PATH`. None if it's in neither.
+pub fn tool_path(name: &str) -> Option<PathBuf> {
+    let bundled = std::env::current_exe().ok().and_then(|exe| Some(exe.parent()?.join(name)));
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    let on_path = std::env::split_paths(&path).map(|dir| dir.join(name));
+    bundled.into_iter().chain(on_path).find(|path| path.is_file())
 }
 
 /// Writes a colourful, photo-like JPEG page for tests.
