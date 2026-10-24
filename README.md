@@ -167,8 +167,11 @@ push to `main` and on pull requests.
 
 ### Releasing
 
-1. Bump `version` in `Cargo.toml` and commit.
-2. Tag the commit with that version and push the tag:
+1. Bump `version` in `Cargo.toml`.
+2. Add a section for the version to `CHANGELOG.md`, listing everything that
+   changed since the previous release under Additions, Changes and Bug Fixes,
+   and commit.
+3. Tag the commit with that version and push the tag:
 
    ```sh
    git tag v0.2.0
@@ -177,8 +180,11 @@ push to `main` and on pull requests.
 
 The release workflow builds the binary on Ubuntu 24.04, packages
 `comic-editor-<tag>-linux-x86_64.tar.gz` and `comic-editor-<tag>-x86_64.AppImage`
-with their `.sha256` files, and publishes them as a GitHub release. It fails if
-the tag doesn't match `Cargo.toml`. To try a build without releasing, run the
+with their `.sha256` files, and publishes them as a GitHub release. The release
+notes are the version's section of `CHANGELOG.md`, followed by install
+instructions (`packaging/release-install.md`) and a link to the commits since
+the previous release. It fails if the tag doesn't match `Cargo.toml` or
+`CHANGELOG.md` has no section for the version. To try a build without releasing, run the
 workflow by hand (**Actions → Release → Run workflow**); the files are attached
 to the run.
 

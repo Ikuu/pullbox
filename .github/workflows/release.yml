@@ -1,8 +1,9 @@
 name: Release
 
 # Pushing a tag like v0.2.0 builds the Linux tarball and AppImage and
-# publishes them as a GitHub release. Running the workflow by hand (Actions >
-# Release > Run workflow) builds both without publishing, to try them out.
+# publishes them as a GitHub release, with the version's CHANGELOG.md section
+# as its notes. Running the workflow by hand (Actions > Release > Run
+# workflow) builds both without publishing, to try them out.
 on:
   push:
     tags: ["v*"]
@@ -18,6 +19,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+        with:
+          # The release notes link to the commits since the previous tag.
+          fetch-depth: 0
       # dav1d to build against; unrar and avifenc to bundle in the AppImage.
       - run: sudo apt-get update && sudo apt-get install -y libdav1d-dev libavif-bin unrar
       - uses: dtolnay/rust-toolchain@stable
@@ -36,6 +40,12 @@ jobs:
             echo "Tag $GITHUB_REF_NAME doesn't match version $VERSION in Cargo.toml" >&2
             exit 1
           fi
+
+      # Fails a release whose version has no section in CHANGELOG.md, before
+      # spending time on the build. Test builds go ahead without notes.
+      - name: Write the release notes
+        continue-on-error: ${{ github.ref_type != 'tag' }}
+        run: packaging/release-notes.sh "${VERSION#v}" > release-notes.md
 
       - run: cargo build --release --locked
 
@@ -65,7 +75,9 @@ jobs:
         if: github.ref_type != 'tag'
         with:
           name: comic-editor-${{ env.VERSION }}
-          path: dist/
+          path: |
+            dist/
+            release-notes.md
 
       - name: Publish
         if: github.ref_type == 'tag'
@@ -73,4 +85,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" dist/* \
-            --title "Comic Editor $GITHUB_REF_NAME" --generate-notes
+            --title "Comic Editor $GITHUB_REF_NAME" --notes-file release-notes.md
