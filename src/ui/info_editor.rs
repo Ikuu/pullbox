@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use egui::{Color32, RichText, Stroke, StrokeKind};
 
+use super::widgets;
 use crate::comicinfo::ComicInfo;
 use crate::comicinfo::fields::{self, FIELDS, FieldDef, FieldKind};
 
@@ -160,7 +161,7 @@ impl InfoEditor {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             for tab in Tab::ALL {
-                ui.selectable_value(&mut self.tab, tab, tab.title());
+                widgets::selectable_value(ui, &mut self.tab, tab, tab.title());
             }
         });
     }
@@ -297,9 +298,9 @@ fn choice_editor(
         .width(width)
         .selected_text(selected)
         .show_ui(ui, |ui| {
-            ui.selectable_value(&mut field.value, String::new(), "—");
+            widgets::selectable_value(ui, &mut field.value, String::new(), "—");
             for option in options {
-                ui.selectable_value(&mut field.value, (*option).to_owned(), *option);
+                widgets::selectable_value(ui, &mut field.value, (*option).to_owned(), *option);
             }
         })
         .response

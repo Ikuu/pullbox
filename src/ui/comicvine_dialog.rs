@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use egui::{RichText, Ui};
 
+use super::widgets;
 use crate::comicvine::{self, Event, Issue, Lookup, Request, Session, Volume};
 
 pub type FieldValues = Vec<(&'static str, String)>;
@@ -212,7 +213,7 @@ impl ComicVineDialog {
                         ui.add_enabled(matched, egui::Checkbox::without_text(&mut item.apply))
                             .on_hover_text("Apply this match");
                         ui.vertical(|ui| {
-                            let label = ui.selectable_label(self.selected == index, &item.file_name);
+                            let label = ui.add(widgets::selectable(ui, self.selected == index, &item.file_name));
                             if label.clicked() {
                                 self.selected = index;
                             }
@@ -256,7 +257,7 @@ impl ComicVineDialog {
                 };
                 for volume in &item.volumes {
                     let response = ui
-                        .selectable_label(current == Some(volume.id), volume_label(volume))
+                        .add(widgets::selectable(ui, current == Some(volume.id), volume_label(volume)))
                         .on_hover_ui(|ui| {
                             if let Some(image) = &volume.image {
                                 ui.add(egui::Image::new(&image.small_url).max_height(260.0));

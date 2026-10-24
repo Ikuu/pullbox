@@ -26,6 +26,29 @@ pub fn search_field(ui: &mut egui::Ui, text: &mut String, id_salt: &str, hint: &
     response
 }
 
+/// A selectable button that keeps its height when hovered. Unframed, egui
+/// still takes the stroke width off the padding, so it's a little shorter
+/// than when hovering draws the frame, and everything below it shifts.
+pub fn selectable<'a>(ui: &egui::Ui, selected: bool, atoms: impl egui::IntoAtoms<'a>) -> egui::Button<'a> {
+    let height = ui.text_style_height(&egui::TextStyle::Button) + 2.0 * ui.spacing().button_padding.y;
+    egui::Button::selectable(selected, atoms).min_size(vec2(0.0, height))
+}
+
+/// Like `Ui::selectable_value`, using [`selectable`].
+pub fn selectable_value<'a, T: PartialEq>(
+    ui: &mut egui::Ui,
+    current: &mut T,
+    value: T,
+    atoms: impl egui::IntoAtoms<'a>,
+) -> egui::Response {
+    let mut response = ui.add(selectable(ui, *current == value, atoms));
+    if response.clicked() && *current != value {
+        *current = value;
+        response.mark_changed();
+    }
+    response
+}
+
 /// Paints a small rounded label, placed at `pos` by `align`. Returns its rect.
 pub fn paint_badge(
     painter: &egui::Painter,

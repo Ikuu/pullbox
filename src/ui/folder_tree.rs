@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use egui::collapsing_header::CollapsingState;
 
+use super::widgets;
 use crate::icons::{self, Tone};
 use crate::library::ComicRecord;
 use crate::util::natural_cmp;
@@ -141,8 +142,8 @@ fn entry_label(ui: &mut egui::Ui, selected: bool, icon: &str, name: &str, count:
     let count = egui::RichText::new(count.to_string()).color(count_color);
     let tone = if selected { Tone::Selected } else { Tone::Normal };
     let button = match icons::toned(icon, tone) {
-        Some(icon) => egui::Button::selectable(selected, (icon, name, count)),
-        None => egui::Button::selectable(selected, (name, count)),
+        Some(icon) => widgets::selectable(ui, selected, (icon, name, count)),
+        None => widgets::selectable(ui, selected, (name, count)),
     };
     ui.add(button.gap(6.0))
 }
