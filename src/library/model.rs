@@ -9,6 +9,64 @@ use anyhow::Result;
 use crate::archive::{self, Format, Summary};
 use crate::util::lower_ext;
 
+/// What a library folder holds. Decides where its comics are looked up and
+/// how they're tagged.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum LibraryKind {
+    #[default]
+    Comic,
+    Manga,
+}
+
+impl LibraryKind {
+    pub const ALL: [LibraryKind; 2] = [LibraryKind::Comic, LibraryKind::Manga];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            LibraryKind::Comic => "Comics",
+            LibraryKind::Manga => "Manga",
+        }
+    }
+
+    /// How the kind is stored in the database.
+    pub fn key(self) -> &'static str {
+        match self {
+            LibraryKind::Comic => "comic",
+            LibraryKind::Manga => "manga",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Self {
+        match key {
+            "manga" => LibraryKind::Manga,
+            _ => LibraryKind::Comic,
+        }
+    }
+
+    /// A first guess for a newly added folder, from its name.
+    pub fn guess(folder: &Path) -> Self {
+        let name = folder.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+        if name.contains("manga") { LibraryKind::Manga } else { LibraryKind::Comic }
+    }
+}
+
+/// A folder the user added to the library.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Root {
+    pub path: PathBuf,
+    pub kind: LibraryKind,
+}
+
+/// The kind of the library folder holding `path`. Roots can be nested; the
+/// innermost wins.
+pub fn kind_of(roots: &[Root], path: &Path) -> LibraryKind {
+    roots
+        .iter()
+        .filter(|r| path.starts_with(&r.path))
+        .max_by_key(|r| r.path.components().count())
+        .map_or(LibraryKind::Comic, |r| r.kind)
+}
+
 /// One comic file plus the metadata fields shown in the library view.
 #[derive(Clone, Debug)]
 pub struct ComicRecord {
@@ -140,4 +198,19 @@ fn epoch_secs(time: std::io::Result<SystemTime>) -> i64 {
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| d.as_secs() as i64)
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_innermost_library_folder_decides_the_kind() {
+        let root = |path: &str, kind| Root { path: PathBuf::from(path), kind };
+        let roots = [root("/lib", LibraryKind::Comic), root("/lib/manga", LibraryKind::Manga)];
+        assert_eq!(kind_of(&roots, Path::new("/lib/manga/Berserk/v01.cbz")), LibraryKind::Manga);
+        assert_eq!(kind_of(&roots, Path::new("/lib/Saga/001.cbz")), LibraryKind::Comic);
+        assert_eq!(kind_of(&roots, Path::new("/elsewhere/a.cbz")), LibraryKind::Comic);
+        assert_eq!(LibraryKind::guess(Path::new("/media/Manga Collection")), LibraryKind::Manga);
+    }
 }

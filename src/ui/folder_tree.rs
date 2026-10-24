@@ -7,7 +7,7 @@ use egui::collapsing_header::CollapsingState;
 
 use super::widgets;
 use crate::icons::{self, Tone};
-use crate::library::ComicRecord;
+use crate::library::{ComicRecord, LibraryKind, Root};
 use crate::util::natural_cmp;
 
 /// The part of the library the comic pane shows.
@@ -38,6 +38,8 @@ pub enum TreeAction {
     /// Show sizes, savings and tagging for a folder, or the whole library.
     Stats(Option<PathBuf>),
     RemoveRoot(PathBuf),
+    /// Change what a library folder holds.
+    SetKind(PathBuf, LibraryKind),
     OpenInFileManager(PathBuf),
 }
 
@@ -54,12 +56,14 @@ struct FolderNode {
     name: String,
     /// Comics in this folder and all of its subfolders.
     comic_count: usize,
+    /// What the folder holds, for library folders.
+    kind: Option<LibraryKind>,
     children: Vec<FolderNode>,
 }
 
 impl FolderTree {
     /// `recent_since` is the "Recently Added" cutoff, in seconds since the Unix epoch.
-    pub fn build(roots: &[PathBuf], comics: &[ComicRecord], recent_since: i64) -> Self {
+    pub fn build(roots: &[Root], comics: &[ComicRecord], recent_since: i64) -> Self {
         let mut direct_counts: BTreeMap<&Path, usize> = BTreeMap::new();
         for comic in comics {
             *direct_counts.entry(comic.folder()).or_default() += 1;
@@ -70,13 +74,14 @@ impl FolderTree {
             .map(|root| {
                 // Every folder between the root and a folder holding comics.
                 let mut folders = BTreeSet::new();
-                for dir in direct_counts.keys().filter(|d| d.starts_with(root)) {
-                    for ancestor in dir.ancestors().take_while(|a| a.starts_with(root)) {
+                for dir in direct_counts.keys().filter(|d| d.starts_with(&root.path)) {
+                    for ancestor in dir.ancestors().take_while(|a| a.starts_with(&root.path)) {
                         folders.insert(ancestor);
                     }
                 }
-                let mut node = build_node(root, &folders, &direct_counts);
-                node.name = root.display().to_string();
+                let mut node = build_node(&root.path, &folders, &direct_counts);
+                node.name = root.path.display().to_string();
+                node.kind = Some(root.kind);
                 node
             })
             .collect();
@@ -170,6 +175,7 @@ fn build_node(path: &Path, folders: &BTreeSet<&Path>, direct_counts: &BTreeMap<&
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default(),
         comic_count: own + children.iter().map(|c| c.comic_count).sum::<usize>(),
+        kind: None,
         children,
     }
 }
@@ -212,9 +218,16 @@ fn show_node(
 
     let mut label = |ui: &mut egui::Ui| {
         let is_selected = selected == Some(node.path.as_path());
-        let icon = if is_root { "folder-library" } else { "folder" };
-        let response = entry_label(ui, is_selected, icon, &node.name, node.comic_count)
-            .on_hover_text(node.path.display().to_string());
+        let icon = match node.kind {
+            Some(LibraryKind::Manga) => "folder-book",
+            Some(LibraryKind::Comic) => "folder-library",
+            None => "folder",
+        };
+        let hover = match node.kind {
+            Some(kind) => format!("{}\n{} folder", node.path.display(), kind.label()),
+            None => node.path.display().to_string(),
+        };
+        let response = entry_label(ui, is_selected, icon, &node.name, node.comic_count).on_hover_text(hover);
         if response.clicked() {
             *action = Some(click_action(is_selected, Scope::Folder(node.path.clone())));
         }
@@ -235,8 +248,18 @@ fn show_node(
                 *action = Some(TreeAction::OpenInFileManager(node.path.clone()));
                 ui.close();
             }
-            if is_root {
+            if let Some(current) = node.kind {
                 ui.separator();
+                ui.menu_button("Holds", |ui| {
+                    for kind in LibraryKind::ALL {
+                        if ui.radio(current == kind, kind.label()).clicked() {
+                            if kind != current {
+                                *action = Some(TreeAction::SetKind(node.path.clone(), kind));
+                            }
+                            ui.close();
+                        }
+                    }
+                });
                 if ui.add(icons::button("list-remove", "", "Remove from Library")).clicked() {
                     *action = Some(TreeAction::RemoveRoot(node.path.clone()));
                     ui.close();

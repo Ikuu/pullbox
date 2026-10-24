@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OptionalExtension, Row, params};
 
-use super::model::{ComicMeta, ComicRecord};
+use super::model::{ComicMeta, ComicRecord, LibraryKind, Root};
 use crate::archive::Format;
 
 /// Tables of extra facts about comics, keyed by path. Their rows follow a
@@ -14,7 +14,7 @@ use crate::archive::Format;
 const COMIC_DATA_TABLES: [&str; 2] = ["collects", "original_sizes"];
 
 /// Bump when the schema changes and add a step to `migrate`.
-const SCHEMA_VERSION: i32 = 5;
+const SCHEMA_VERSION: i32 = 6;
 
 pub struct Database {
     conn: Connection,
@@ -106,6 +106,11 @@ impl Database {
                  );",
             )?;
         }
+        if version < 6 && !self.has_column("roots", "kind")? {
+            // What each library folder holds; existing folders hold comics.
+            self.conn
+                .execute_batch("ALTER TABLE roots ADD COLUMN kind TEXT NOT NULL DEFAULT 'comic';")?;
+        }
         // Never lower the version: a newer build may have upgraded the database.
         if version < SCHEMA_VERSION {
             self.conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
@@ -120,18 +125,26 @@ impl Database {
 
     // ----- roots -----
 
-    pub fn roots(&self) -> Result<Vec<PathBuf>> {
-        let mut stmt = self.conn.prepare("SELECT path FROM roots ORDER BY path")?;
+    pub fn roots(&self) -> Result<Vec<Root>> {
+        let mut stmt = self.conn.prepare("SELECT path, kind FROM roots ORDER BY path")?;
         let roots = stmt
-            .query_map([], |r| r.get::<_, String>(0))?
-            .map(|p| p.map(PathBuf::from))
+            .query_map([], |r| {
+                Ok(Root {
+                    path: PathBuf::from(r.get::<_, String>(0)?),
+                    kind: LibraryKind::from_key(&r.get::<_, String>(1)?),
+                })
+            })?
             .collect::<rusqlite::Result<_>>()?;
         Ok(roots)
     }
 
-    pub fn add_root(&self, path: &Path) -> Result<()> {
-        self.conn
-            .execute("INSERT OR IGNORE INTO roots (path) VALUES (?1)", [path_str(path)?])?;
+    /// Adds a library folder, or changes the kind of one already added.
+    pub fn add_root(&self, path: &Path, kind: LibraryKind) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO roots (path, kind) VALUES (?1, ?2)
+             ON CONFLICT (path) DO UPDATE SET kind = excluded.kind",
+            [path_str(path)?, kind.key()],
+        )?;
         Ok(())
     }
 
@@ -352,6 +365,17 @@ mod tests {
 
         let db = Database::open(&path).unwrap();
         assert_eq!(db.added(Path::new("/lib/a.cbz")).unwrap(), Some(100));
+    }
+
+    #[test]
+    fn roots_remember_their_kind() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Database::open(&dir.path().join("library.db")).unwrap();
+        db.add_root(Path::new("/lib/comics"), LibraryKind::Comic).unwrap();
+        db.add_root(Path::new("/lib/manga"), LibraryKind::Comic).unwrap();
+        db.add_root(Path::new("/lib/manga"), LibraryKind::Manga).unwrap();
+        let kinds: Vec<LibraryKind> = db.roots().unwrap().into_iter().map(|r| r.kind).collect();
+        assert_eq!(kinds, [LibraryKind::Comic, LibraryKind::Manga]);
     }
 
     #[test]

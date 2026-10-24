@@ -7,7 +7,7 @@ pub mod series_check;
 pub mod stats;
 
 pub use db::Database;
-pub use model::ComicRecord;
+pub use model::{ComicRecord, LibraryKind, Root, kind_of};
 
 use std::path::PathBuf;
 

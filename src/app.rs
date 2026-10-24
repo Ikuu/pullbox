@@ -10,9 +10,9 @@ use crate::comicvine::Lookup;
 use crate::convert::{self, CompressOptions};
 use crate::jobs::{self, JobEvent, JobHandle, JobKind, JobReport};
 use crate::library::scanner::{self, ScanEvent, ScanHandle, ScanReport};
-use crate::library::{ComicRecord, Database, stats};
+use crate::library::{ComicRecord, Database, LibraryKind, Root, kind_of, stats};
 use crate::ui::{
-    AboutDialog, ComicAction, ComicGrid, ComicTable, ComicVineDialog, ComicVineTarget, ComicView, CompressDialog, CompressOutcome,
+    AboutDialog, AddFolderDialog, AddFolderOutcome, ComicAction, ComicGrid, ComicTable, ComicVineDialog, ComicVineTarget, ComicView, CompressDialog, CompressOutcome,
     DetailsPane, EditorOutcome, ErrorsDialog, FieldValues, FolderTree, InfoEditor, QuitOutcome, Scope, ScrapeOutcome,
     Selection, SeriesCheckDialog, SeriesCheckOutcome, SettingsDialog, SettingsOutcome, StatsDialog, ToastKind, Toasts,
     TreeAction, comic_grid, progress_bar,
@@ -26,11 +26,13 @@ use crate::util::{format_bytes, now_secs, open_in_file_manager};
 
 /// Width of the details pane, including its margins.
 const DETAILS_WIDTH: f32 = 320.0;
+/// What the ComicInfo `Manga` field is set to for comics in manga folders.
+const MANGA_DEFAULT: &str = "YesAndRightToLeft";
 
 pub struct ComicEditorApp {
     db_path: PathBuf,
     db: Database,
-    roots: Vec<PathBuf>,
+    roots: Vec<Root>,
     comics: Vec<ComicRecord>,
 
     tree: FolderTree,
@@ -61,6 +63,7 @@ pub struct ComicEditorApp {
     series_check: Option<SeriesCheckDialog>,
     stats: Option<StatsDialog>,
     about: Option<AboutDialog>,
+    add_folder: Option<AddFolderDialog>,
     /// A comic to scroll into view in the list or grid next frame.
     scroll_to: Option<PathBuf>,
     /// Last used compression settings, offered again next time.
@@ -132,6 +135,7 @@ impl ComicEditorApp {
             series_check: None,
             stats: None,
             about: None,
+            add_folder: None,
             scroll_to: None,
             compress_options: CompressOptions::default(),
             scan: None,
@@ -197,7 +201,7 @@ impl ComicEditorApp {
                 let name = folder.file_name().unwrap_or(folder.as_os_str()).to_string_lossy().into_owned();
                 (vec![folder], format!("Refreshing {name}…"))
             }
-            None => (self.roots.clone(), "Scanning library…".to_owned()),
+            None => (self.roots.iter().map(|r| r.path.clone()).collect(), "Scanning library…".to_owned()),
         };
         if folders.is_empty() {
             return;
@@ -302,7 +306,14 @@ impl ComicEditorApp {
             .any(|c| c.format == Format::Cbr && paths.contains(&c.path));
         let read_only = has_cbr.then(|| "CBR files are read-only — convert them to CBZ to edit".to_owned());
 
-        self.editor = Some(InfoEditor::new(paths, &infos, read_only));
+        let all_manga = paths.iter().all(|p| self.kind_of(p) == LibraryKind::Manga);
+        let untagged = infos.iter().all(|info| info.get("Manga").is_none());
+        let mut editor = InfoEditor::new(paths, &infos, read_only);
+        if all_manga && untagged {
+            // Offered as an unsaved change, so it's visible and can be undone.
+            editor.fill(&[("Manga", MANGA_DEFAULT.to_owned())]);
+        }
+        self.editor = Some(editor);
     }
 
     /// Writes metadata changes, which may differ per comic, in the background.
@@ -508,6 +519,7 @@ impl ComicEditorApp {
             || self.comicvine_dialog.is_some()
             || self.settings_dialog.is_some()
             || self.about.is_some()
+            || self.add_folder.is_some()
             || self.show_errors
             || self.confirm_quit
     }
@@ -628,14 +640,41 @@ impl ComicEditorApp {
 
     // ----- library management -----
 
-    fn add_folder(&mut self, ctx: &egui::Context) {
-        let Some(folder) = rfd::FileDialog::new().set_title("Add Library Folder").pick_folder() else {
-            return;
-        };
-        self.report_error(self.db.add_root(&folder));
+    fn add_folder(&mut self) {
+        if let Some(folder) = rfd::FileDialog::new().set_title("Add Library Folder").pick_folder() {
+            self.add_folder = Some(AddFolderDialog::new(folder));
+        }
+    }
+
+    fn show_add_folder_dialog(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = &mut self.add_folder else { return };
+        match dialog.show(ctx) {
+            Some(AddFolderOutcome::Add(folder, kind)) => {
+                self.add_folder = None;
+                self.report_error(self.db.add_root(&folder, kind));
+                let reloaded = self.reload();
+                self.report_error(reloaded);
+                self.start_scan(ctx);
+            }
+            Some(AddFolderOutcome::Cancel) => self.add_folder = None,
+            None => {}
+        }
+    }
+
+    fn set_root_kind(&mut self, root: &Path, kind: LibraryKind) {
+        let saved = self.db.add_root(root, kind);
+        if saved.is_ok() {
+            let name = root.file_name().unwrap_or(root.as_os_str()).to_string_lossy();
+            self.notify(ToastKind::Success, format!("“{name}” now holds {}", kind.label().to_lowercase()));
+        }
+        self.report_error(saved);
         let reloaded = self.reload();
         self.report_error(reloaded);
-        self.start_scan(ctx);
+    }
+
+    /// What the library folder holding `path` holds.
+    fn kind_of(&self, path: &Path) -> LibraryKind {
+        kind_of(&self.roots, path)
     }
 
     fn remove_root(&mut self, root: &Path) {
@@ -683,6 +722,7 @@ impl ComicEditorApp {
             TreeAction::CheckSeries(folder) => self.open_series_check(ctx, folder),
             TreeAction::Stats(folder) => self.open_stats(folder),
             TreeAction::RemoveRoot(root) => self.remove_root(&root),
+            TreeAction::SetKind(root, kind) => self.set_root_kind(&root, kind),
             TreeAction::OpenInFileManager(dir) => self.open_dir(&dir),
         }
     }
@@ -708,7 +748,7 @@ impl ComicEditorApp {
             ui.menu_button("File", |ui| {
                 if ui.add(icons::button("folder-new", "", "Add Library Folder…")).clicked() {
                     ui.close();
-                    self.add_folder(ui.ctx());
+                    self.add_folder();
                 }
                 let can_scan = self.scan.is_none() && !self.roots.is_empty();
                 if ui.add_enabled(can_scan, icons::button("view-refresh", "", "Refresh Library")).clicked() {
@@ -952,7 +992,7 @@ impl ComicEditorApp {
                 ui.heading("Your library is empty");
                 ui.add_space(8.0);
                 if ui.button("Add Library Folder…").clicked() {
-                    self.add_folder(ui.ctx());
+                    self.add_folder();
                 }
             });
         });
@@ -1063,6 +1103,7 @@ impl eframe::App for ComicEditorApp {
         if let Some(about) = &mut self.about && about.show(&ctx) {
             self.about = None;
         }
+        self.show_add_folder_dialog(&ctx);
         self.handle_close_request(&ctx);
         self.toasts.show(&ctx, status_bar.response.rect.height());
     }

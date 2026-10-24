@@ -7,6 +7,9 @@ A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
 - **Library browser**: add one or more library folders and browse them in a
   folder tree, as a sortable list or as a grid of covers. Search by series,
   title, publisher, writer or file name.
+- **Comic and manga folders**: when you add a folder, say whether it holds
+  comics or manga (right-click it to change this later). Comics in a manga
+  folder are tagged as manga, read right to left.
 - **Recently Added**: the newest comics in the library, newest first. How far
   back it looks is set in Settings (30 days by default).
 - **Series check**: finds missing issues, issues you have more than once and
@@ -111,8 +114,9 @@ cargo run --release
 
 ## Getting started
 
-1. Choose **File → Add Library Folder…** and pick the folder holding your
-   comics. The library is scanned in the background.
+1. Choose **File → Add Library Folder…**, pick the folder holding your
+   comics and say whether it holds comics or manga. The library is scanned in
+   the background.
 2. To use ComicVine lookups, get a free API key from
    <https://comicvine.gamespot.com/api/> and enter it in **File → Settings…**.
 3. Right-click comics to edit their info, look them up on ComicVine, convert
