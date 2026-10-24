@@ -111,6 +111,7 @@ fn run(
             if record.path != *path {
                 // Still the same comic: keep when it was added.
                 record.added = db.added(path)?.unwrap_or(record.added);
+                db.move_collects(path, &record.path)?;
                 removed.push(path.clone());
             }
             db.apply_changes(&[record], &removed)?;

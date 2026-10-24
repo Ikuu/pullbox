@@ -14,7 +14,8 @@ use crate::library::{ComicRecord, Database};
 use crate::ui::{
     ComicAction, ComicGrid, ComicTable, ComicVineDialog, ComicVineTarget, ComicView, CompressDialog, CompressOutcome,
     DetailsPane, EditorOutcome, ErrorsDialog, FieldValues, FolderTree, InfoEditor, QuitOutcome, Scope, ScrapeOutcome,
-    Selection, SettingsDialog, SettingsOutcome, ToastKind, Toasts, TreeAction, comic_grid, progress_bar,
+    Selection, SeriesCheckDialog, SeriesCheckOutcome, SettingsDialog, SettingsOutcome, ToastKind, Toasts, TreeAction,
+    comic_grid, progress_bar,
     show_quit_dialog, widgets,
 };
 use crate::icons::{self, Tone};
@@ -57,6 +58,9 @@ pub struct ComicEditorApp {
     comicvine_fills_editor: bool,
     settings_dialog: Option<SettingsDialog>,
     compress_dialog: Option<CompressDialog>,
+    series_check: Option<SeriesCheckDialog>,
+    /// A comic to scroll into view in the list or grid next frame.
+    scroll_to: Option<PathBuf>,
     /// Last used compression settings, offered again next time.
     compress_options: CompressOptions,
 
@@ -123,6 +127,8 @@ impl ComicEditorApp {
             comicvine_fills_editor: false,
             settings_dialog: None,
             compress_dialog: None,
+            series_check: None,
+            scroll_to: None,
             compress_options: CompressOptions::default(),
             scan: None,
             job: None,
@@ -554,6 +560,60 @@ impl ComicEditorApp {
         }
     }
 
+    // ----- series check -----
+
+    /// Checks the comics in `folder` (and its subfolders), or the whole library.
+    fn open_series_check(&mut self, ctx: &egui::Context, folder: Option<PathBuf>) {
+        let comics: Vec<ComicRecord> = self
+            .comics
+            .iter()
+            .filter(|c| folder.as_ref().is_none_or(|f| c.path.starts_with(f)))
+            .cloned()
+            .collect();
+        let entered = match self.db.all_collects() {
+            Ok(entered) => entered,
+            Err(e) => return self.report_error(Err(e)),
+        };
+        let scope = match &folder {
+            Some(folder) => {
+                let name = folder.file_name().unwrap_or(folder.as_os_str()).to_string_lossy();
+                format!("“{name}” and its subfolders")
+            }
+            None => "the whole library".to_owned(),
+        };
+        self.series_check = Some(SeriesCheckDialog::new(scope, comics, entered, ctx));
+    }
+
+    fn show_series_check(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = &mut self.series_check else { return };
+        match dialog.show(ctx) {
+            Some(SeriesCheckOutcome::SetCollects(path, issues)) => {
+                let saved = self.db.set_collects(&path, &issues);
+                if saved.is_ok() {
+                    dialog.set_entered(path, issues);
+                }
+                self.report_error(saved);
+            }
+            Some(SeriesCheckOutcome::Show(path)) => self.show_comic(&path),
+            Some(SeriesCheckOutcome::Close) => self.series_check = None,
+            None => {}
+        }
+    }
+
+    /// Selects a comic in the library and scrolls to it, showing its folder.
+    fn show_comic(&mut self, path: &Path) {
+        let Some(comic) = self.comics.iter().find(|c| c.path == path) else {
+            return self.notify(ToastKind::Info, "That comic is no longer in the library");
+        };
+        self.filter.scope = Scope::Folder(comic.folder().to_path_buf());
+        self.filter.search.clear();
+        self.refresh_visible();
+        if let Some(position) = self.visible.iter().position(|&i| self.comics[i].path == path) {
+            self.selection.select_only(position, path);
+            self.scroll_to = Some(path.to_path_buf());
+        }
+    }
+
     // ----- library management -----
 
     fn add_folder(&mut self, ctx: &egui::Context) {
@@ -608,6 +668,7 @@ impl ComicEditorApp {
                 self.refresh_visible();
             }
             TreeAction::Refresh(folder) => self.refresh(ctx, folder),
+            TreeAction::CheckSeries(folder) => self.open_series_check(ctx, folder),
             TreeAction::RemoveRoot(root) => self.remove_root(&root),
             TreeAction::OpenInFileManager(dir) => self.open_dir(&dir),
         }
@@ -640,6 +701,11 @@ impl ComicEditorApp {
                 if ui.add_enabled(can_scan, icons::button("view-refresh", "", "Refresh Library")).clicked() {
                     ui.close();
                     self.start_scan(ui.ctx());
+                }
+                let can_check = !self.comics.is_empty();
+                if ui.add_enabled(can_check, icons::button("view-statistics", "", "Check Series…")).clicked() {
+                    ui.close();
+                    self.open_series_check(ui.ctx(), None);
                 }
                 ui.separator();
                 if ui.add(icons::button("configure", "", "Settings…")).clicked() {
@@ -830,15 +896,19 @@ impl ComicEditorApp {
 
     /// Draws the list or grid of comics.
     fn comic_view(&mut self, ui: &mut egui::Ui) -> Option<ComicAction> {
+        let scroll_to = self
+            .scroll_to
+            .take()
+            .and_then(|path| self.visible.iter().position(|&i| self.comics[i].path == path));
         let mut view = ComicView {
             comics: &self.comics,
             visible: &self.visible,
             selection: &mut self.selection,
         };
         match self.view_mode {
-            ViewMode::Grid => self.grid.show(ui, &mut view, &mut self.thumbnails),
+            ViewMode::Grid => self.grid.show(ui, &mut view, &mut self.thumbnails, scroll_to),
             ViewMode::List => {
-                let response = self.table.show(ui, &mut view);
+                let response = self.table.show(ui, &mut view, scroll_to);
                 if response.sort_changed {
                     self.table.sort(&self.comics, &mut self.visible);
                 }
@@ -963,6 +1033,7 @@ impl eframe::App for ComicEditorApp {
         self.show_comicvine_dialog(&ctx);
         self.show_settings_dialog(&ctx);
         self.show_errors_dialog(&ctx);
+        self.show_series_check(&ctx);
         self.handle_close_request(&ctx);
         self.toasts.show(&ctx, status_bar.response.rect.height());
     }
@@ -1018,4 +1089,5 @@ fn describe_job(kind: JobKind, report: &JobReport) -> String {
 fn fraction(done: usize, total: usize) -> f32 {
     if total == 0 { 0.0 } else { done as f32 / total as f32 }
 }
+
 

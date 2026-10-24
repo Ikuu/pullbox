@@ -10,7 +10,7 @@ use super::model::{ComicMeta, ComicRecord};
 use crate::archive::Format;
 
 /// Bump when the schema changes and add a step to `migrate`.
-const SCHEMA_VERSION: i32 = 3;
+const SCHEMA_VERSION: i32 = 4;
 
 pub struct Database {
     conn: Connection,
@@ -81,6 +81,17 @@ impl Database {
             // by the next scan.
             self.conn.execute_batch("UPDATE comics SET added = modified WHERE added = 0;")?;
         }
+        if version < 4 {
+            // Which issues a collected edition contains, as the user entered
+            // them (e.g. "1-6"). Kept apart from `comics` so a rescan, which
+            // replaces comic rows, doesn't lose them.
+            self.conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS collects (
+                     path   TEXT PRIMARY KEY,
+                     issues TEXT NOT NULL
+                 );",
+            )?;
+        }
         // Never lower the version: a newer build may have upgraded the database.
         if version < SCHEMA_VERSION {
             self.conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
@@ -116,6 +127,40 @@ impl Database {
         self.conn.execute("DELETE FROM roots WHERE path = ?1", [path])?;
         self.conn
             .execute("DELETE FROM comics WHERE path LIKE ?1 ESCAPE '\\'", [prefix_pattern(path)])?;
+        self.conn
+            .execute("DELETE FROM collects WHERE path LIKE ?1 ESCAPE '\\'", [prefix_pattern(path)])?;
+        Ok(())
+    }
+
+    // ----- collected editions -----
+
+    /// The issues entered for collected editions, by path.
+    pub fn all_collects(&self) -> Result<HashMap<PathBuf, String>> {
+        let mut stmt = self.conn.prepare("SELECT path, issues FROM collects")?;
+        let collects = stmt
+            .query_map([], |r| Ok((PathBuf::from(r.get::<_, String>(0)?), r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(collects)
+    }
+
+    /// Records which issues the comic at `path` collects; empty forgets it.
+    pub fn set_collects(&self, path: &Path, issues: &str) -> Result<()> {
+        let path = path_str(path)?;
+        if issues.trim().is_empty() {
+            self.conn.execute("DELETE FROM collects WHERE path = ?1", [path])?;
+        } else {
+            self.conn
+                .execute("INSERT OR REPLACE INTO collects (path, issues) VALUES (?1, ?2)", [path, issues.trim()])?;
+        }
+        Ok(())
+    }
+
+    /// Keeps a comic's collected issues when its file is renamed (e.g. `.cbr` → `.cbz`).
+    pub fn move_collects(&self, from: &Path, to: &Path) -> Result<()> {
+        self.conn.execute(
+            "UPDATE OR REPLACE collects SET path = ?2 WHERE path = ?1",
+            [path_str(from)?, path_str(to)?],
+        )?;
         Ok(())
     }
 
@@ -193,8 +238,10 @@ impl Database {
             }
 
             let mut delete = tx.prepare("DELETE FROM comics WHERE path = ?1")?;
+            let mut delete_collects = tx.prepare("DELETE FROM collects WHERE path = ?1")?;
             for path in removed {
                 delete.execute([path_str(path)?])?;
+                delete_collects.execute([path_str(path)?])?;
             }
         }
         tx.commit()?;
@@ -273,5 +320,22 @@ mod tests {
         db.apply_changes(&[record("/lib/a.cbz", 500)], &[]).unwrap();
         assert_eq!(db.added(Path::new("/lib/a.cbz")).unwrap(), Some(100));
         assert_eq!(db.all_comics().unwrap()[0].added, 100);
+    }
+
+    #[test]
+    fn collected_issues_follow_renames_and_go_with_removals() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Database::open(&dir.path().join("library.db")).unwrap();
+        let (cbr, cbz) = (Path::new("/lib/v1.cbr"), Path::new("/lib/v1.cbz"));
+        db.set_collects(cbr, " 1-6 ").unwrap();
+        db.move_collects(cbr, cbz).unwrap();
+        assert_eq!(db.all_collects().unwrap().get(cbz).map(String::as_str), Some("1-6"));
+
+        db.apply_changes(&[], &[cbz.to_path_buf()]).unwrap();
+        assert!(db.all_collects().unwrap().is_empty());
+
+        db.set_collects(cbz, "1-6").unwrap();
+        db.set_collects(cbz, "").unwrap();
+        assert!(db.all_collects().unwrap().is_empty());
     }
 }

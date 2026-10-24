@@ -108,7 +108,8 @@ impl ComicTable {
         });
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, view: &mut ComicView) -> TableResponse {
+    /// `scroll_to` is a row to bring into view this frame.
+    pub fn show(&mut self, ui: &mut egui::Ui, view: &mut ComicView, scroll_to: Option<usize>) -> TableResponse {
         let mut action = view.keyboard_shortcuts(ui);
         let mut sort_changed = false;
         let mut columns_changed = false;
@@ -128,6 +129,9 @@ impl ComicTable {
         let hidden_mask = COLUMNS.iter().enumerate().filter(|(_, c)| self.hidden.contains(&c.key)).fold(0u32, |m, (i, _)| m | 1 << i);
         if hidden_mask != 0 {
             table = table.id_salt(("comic_table", hidden_mask));
+        }
+        if let Some(row) = scroll_to {
+            table = table.scroll_to_row(row, Some(egui::Align::Center));
         }
         for (i, col) in columns.iter().enumerate() {
             let column = if i == columns.len() - 1 {

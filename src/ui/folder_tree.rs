@@ -32,6 +32,8 @@ pub enum TreeAction {
     Select(Scope),
     /// Re-read a folder from disk; `None` refreshes the whole library.
     Refresh(Option<PathBuf>),
+    /// Look for missing issues and duplicates in a folder, or the whole library.
+    CheckSeries(Option<PathBuf>),
     RemoveRoot(PathBuf),
     OpenInFileManager(PathBuf),
 }
@@ -103,6 +105,10 @@ impl FolderTree {
             response.context_menu(|ui| {
                 if ui.add(icons::button("view-refresh", "", "Refresh Library").shortcut_text("F5")).clicked() {
                     action = Some(TreeAction::Refresh(None));
+                    ui.close();
+                }
+                if ui.add(icons::button("view-statistics", "", "Check Series…")).clicked() {
+                    action = Some(TreeAction::CheckSeries(None));
                     ui.close();
                 }
             });
@@ -208,6 +214,10 @@ fn show_node(
         response.context_menu(|ui| {
             if ui.add(icons::button("view-refresh", "", "Refresh")).clicked() {
                 *action = Some(TreeAction::Refresh(Some(node.path.clone())));
+                ui.close();
+            }
+            if ui.add(icons::button("view-statistics", "", "Check Series…")).clicked() {
+                *action = Some(TreeAction::CheckSeries(Some(node.path.clone())));
                 ui.close();
             }
             if ui.add(icons::button("folder-open", "", "Open in File Manager")).clicked() {

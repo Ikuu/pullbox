@@ -9,6 +9,10 @@ A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
   title, publisher, writer or file name.
 - **Recently Added**: the newest comics in the library, newest first. How far
   back it looks is set in Settings (30 days by default).
+- **Series check**: finds missing issues, issues you have more than once and
+  identical files, for the whole library (File menu) or one folder (right-click
+  it). Trades count for the issues they collect, read from "Collects …" in their
+  summary or entered by you.
 - **Details pane**: the selected comic's cover, credits and summary. Toggle it
   with the Details button.
 - **Fits your desktop**: uses the KDE colour scheme, font and icon theme, and

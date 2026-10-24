@@ -32,7 +32,14 @@ impl Default for ComicGrid {
 }
 
 impl ComicGrid {
-    pub fn show(&self, ui: &mut egui::Ui, view: &mut ComicView, thumbnails: &mut Thumbnails) -> Option<ComicAction> {
+    /// `scroll_to` is an item (position in the visible list) to bring into view this frame.
+    pub fn show(
+        &self,
+        ui: &mut egui::Ui,
+        view: &mut ComicView,
+        thumbnails: &mut Thumbnails,
+        scroll_to: Option<usize>,
+    ) -> Option<ComicAction> {
         let mut action = view.keyboard_shortcuts(ui);
 
         let cell = vec2(self.cell_width, self.cell_width * COVER_ASPECT + CAPTION_HEIGHT);
@@ -40,8 +47,13 @@ impl ComicGrid {
         let rows = view.visible.len().div_ceil(columns);
 
         ui.spacing_mut().item_spacing = vec2(GAP, GAP);
-        egui::ScrollArea::vertical()
-            .auto_shrink(false)
+        let mut scroll_area = egui::ScrollArea::vertical().auto_shrink(false);
+        if let Some(position) = scroll_to {
+            // Centred: rows are `cell.y` tall with `GAP` between them.
+            let top = (position / columns) as f32 * (cell.y + GAP);
+            scroll_area = scroll_area.vertical_scroll_offset((top - (ui.available_height() - cell.y) / 2.0).max(0.0));
+        }
+        scroll_area
             .show_rows(ui, cell.y, rows, |ui, row_range| {
                 for row in row_range {
                     let start = row * columns;
