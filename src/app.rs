@@ -31,7 +31,7 @@ const DETAILS_WIDTH: f32 = 320.0;
 /// What the ComicInfo `Manga` field is set to for comics in manga folders.
 const MANGA_DEFAULT: &str = "YesAndRightToLeft";
 
-pub struct ComicEditorApp {
+pub struct PullboxApp {
     db_path: PathBuf,
     db: Database,
     roots: Vec<Root>,
@@ -108,7 +108,7 @@ struct JobProgress {
     current: String,
 }
 
-impl ComicEditorApp {
+impl PullboxApp {
     pub fn new(db_path: PathBuf, ctx: &egui::Context) -> Result<Self> {
         let db = Database::open(&db_path)?;
         let settings = Settings::load();
@@ -875,7 +875,7 @@ impl ComicEditorApp {
                 }
             });
             ui.menu_button("Help", |ui| {
-                if ui.add(icons::button("help-about", "", "About Comic Editor")).clicked() {
+                if ui.add(icons::button("help-about", "", "About Pullbox")).clicked() {
                     ui.close();
                     self.about = Some(AboutDialog::new(self.db_path.clone()));
                 }
@@ -1101,7 +1101,7 @@ impl ComicEditorApp {
     }
 }
 
-impl eframe::App for ComicEditorApp {
+impl eframe::App for PullboxApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         theme::reload_if_changed(&ctx);

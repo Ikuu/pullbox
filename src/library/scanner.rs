@@ -166,7 +166,7 @@ fn find_comics(root: &Path) -> Found {
 }
 
 /// Dotfiles: hidden folders like `.Trash-1000`, macOS `._name.cbz` resource
-/// forks, and this app's own temporary `.comic-editor-*` files.
+/// forks, and this app's own temporary `.pullbox-*` files.
 fn is_hidden(name: &OsStr) -> bool {
     name.as_encoded_bytes().starts_with(b".")
 }
@@ -195,7 +195,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().join(".library");
         write_comic(&root.join("a.cbz"));
-        write_comic(&root.join(".comic-editor-123.cbz"));
+        write_comic(&root.join(".pullbox-123.cbz"));
         write_comic(&root.join(".Trash-1000/b.cbz"));
 
         let (_, paths) = scan_paths(&dir.path().join("library.db"), &root);

@@ -86,7 +86,7 @@ pub fn write_comic_info(path: &Path, xml: &str) -> Result<()> {
     let mut archive = ZipArchive::new(BufReader::new(original)).context("not a valid zip archive")?;
 
     let dir = path.parent().context("archive has no parent directory")?;
-    let mut temp = tempfile::Builder::new().prefix(".comic-editor-").tempfile_in(dir)?;
+    let mut temp = tempfile::Builder::new().prefix(".pullbox-").tempfile_in(dir)?;
     {
         let mut writer = ZipWriter::new(BufWriter::new(temp.as_file_mut()));
         for i in 0..archive.len() {

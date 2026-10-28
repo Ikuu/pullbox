@@ -12,10 +12,10 @@ pub use model::{ComicRecord, LibraryKind, Root, kind_of};
 
 use std::path::PathBuf;
 
-/// Location of the library database (e.g. `~/.local/share/comic-editor/library.db`).
-/// Can be overridden with the `COMIC_EDITOR_DB` environment variable.
+/// Location of the library database (e.g. `~/.local/share/pullbox/library.db`).
+/// Can be overridden with the `PULLBOX_DB` environment variable.
 pub fn default_db_path() -> PathBuf {
-    if let Some(path) = std::env::var_os("COMIC_EDITOR_DB") {
+    if let Some(path) = std::env::var_os("PULLBOX_DB") {
         return PathBuf::from(path);
     }
     crate::util::project_dirs()

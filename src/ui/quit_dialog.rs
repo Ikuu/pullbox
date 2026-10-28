@@ -16,7 +16,7 @@ pub fn show_quit_dialog(ctx: &egui::Context, job_title: &str) -> Option<QuitOutc
         ui.add_space(6.0);
         ui.label(
             RichText::new(
-                "Comic Editor can stop after the comic it's working on and then quit. \
+                "Pullbox can stop after the comic it's working on and then quit. \
                  Quitting in the middle of a comic could leave it half-finished.",
             )
             .small()

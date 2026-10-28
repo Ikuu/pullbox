@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Writes the licence notices for everything Comic Editor is built from to OUT:
+# Writes the licence notices for everything Pullbox is built from to OUT:
 # the Rust crates compiled into the binary, then the system packages that the
 # given FILEs (programs and libraries bundled alongside it) came from.
 #
@@ -37,7 +37,7 @@ cat >> "$out" <<'EOF'
 
 ##############################################################################
 
-Comic Editor also includes the programs and libraries below, from the Linux
+Pullbox also includes the programs and libraries below, from the Linux
 distribution it was built on. Their copyright and licence information follows.
 EOF
 

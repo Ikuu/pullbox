@@ -51,10 +51,10 @@ jobs:
 
       - name: Package
         run: |
-          name="comic-editor-$VERSION-linux-x86_64"
+          name="pullbox-$VERSION-linux-x86_64"
           mkdir -p "$name/packaging" dist
-          cp target/release/comic-editor install.sh README.md LICENSE "$name/"
-          cp packaging/comic-editor.svg packaging/comic-editor.desktop "$name/packaging/"
+          cp target/release/pullbox install.sh README.md LICENSE "$name/"
+          cp packaging/pullbox.svg packaging/pullbox.desktop "$name/packaging/"
           packaging/third-party-licenses.sh "$name/THIRD_PARTY_LICENSES.txt"
           tar czf "dist/$name.tar.gz" "$name"
 
@@ -74,7 +74,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.ref_type != 'tag'
         with:
-          name: comic-editor-${{ env.VERSION }}
+          name: pullbox-${{ env.VERSION }}
           path: |
             dist/
             release-notes.md
@@ -85,4 +85,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" dist/* \
-            --title "Comic Editor $GITHUB_REF_NAME" --notes-file release-notes.md
+            --title "Pullbox $GITHUB_REF_NAME" --notes-file release-notes.md

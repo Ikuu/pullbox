@@ -9,7 +9,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 
 const URL: &str = "https://graphql.anilist.co";
-const USER_AGENT: &str = concat!("comic-editor/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("pullbox/", env!("CARGO_PKG_VERSION"));
 /// AniList normally allows 90 requests a minute, but cuts that to 30 while
 /// its API is degraded (as it has been for a while), so keep under that.
 const MIN_REQUEST_INTERVAL: Duration = Duration::from_millis(2100);

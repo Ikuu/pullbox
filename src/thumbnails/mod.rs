@@ -45,7 +45,7 @@ impl Thumbnails {
     pub fn new(ctx: &egui::Context) -> Self {
         let cache_dir = crate::util::project_dirs()
             .map(|dirs| dirs.cache_dir().join("thumbnails"))
-            .unwrap_or_else(|| std::env::temp_dir().join("comic-editor-thumbnails"));
+            .unwrap_or_else(|| std::env::temp_dir().join("pullbox-thumbnails"));
         let requests = Arc::new(RequestStack::default());
         let (tx, results) = channel();
 

@@ -1,4 +1,4 @@
-# Comic Editor
+# Pullbox
 
 A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
 
@@ -80,12 +80,12 @@ Installing them:
 
 ### AppImage
 
-Download `comic-editor-<version>-x86_64.AppImage` from the
+Download `pullbox-<version>-x86_64.AppImage` from the
 [Releases](../../releases) page, make it executable and run it:
 
 ```sh
-chmod +x comic-editor-*-x86_64.AppImage
-./comic-editor-*-x86_64.AppImage
+chmod +x pullbox-*-x86_64.AppImage
+./pullbox-*-x86_64.AppImage
 ```
 
 It includes `unrar`, `avifenc` and the libraries they need, so there's nothing
@@ -96,12 +96,12 @@ it to your application launcher, use a tool such as
 
 ### From a release
 
-Download `comic-editor-<version>-linux-x86_64.tar.gz` from the
+Download `pullbox-<version>-linux-x86_64.tar.gz` from the
 [Releases](../../releases) page, then:
 
 ```sh
-tar xzf comic-editor-*-linux-x86_64.tar.gz
-cd comic-editor-*-linux-x86_64
+tar xzf pullbox-*-linux-x86_64.tar.gz
+cd pullbox-*-linux-x86_64
 ./install.sh
 ```
 
@@ -116,15 +116,15 @@ Debian 13, Fedora 40, Arch and later).
 
 This builds a release binary.
 
-Either way, `install.sh` installs Comic Editor for the current user, along
-with a launcher entry and icon, so **Comic Editor** shows up in your
+Either way, `install.sh` installs Pullbox for the current user, along
+with a launcher entry and icon, so **Pullbox** shows up in your
 application launcher:
 
-| What     | Where                                                           |
-| -------- | --------------------------------------------------------------- |
-| Binary   | `~/.local/bin/comic-editor`                                     |
-| Launcher | `~/.local/share/applications/comic-editor.desktop`              |
-| Icon     | `~/.local/share/icons/hicolor/scalable/apps/comic-editor.svg`   |
+| What     | Where                                                    |
+| -------- | -------------------------------------------------------- |
+| Binary   | `~/.local/bin/pullbox`                                   |
+| Launcher | `~/.local/share/applications/pullbox.desktop`            |
+| Icon     | `~/.local/share/icons/hicolor/scalable/apps/pullbox.svg` |
 
 Set `PREFIX` to install somewhere other than `~/.local`. To remove the app,
 run `./install.sh --uninstall`. This leaves your library database, settings
@@ -170,14 +170,14 @@ Clicking a sidebar entry that's already selected also refreshes it.
 
 ## Where data is stored
 
-| What                       | Where (Linux)                              |
-| -------------------------- | ------------------------------------------ |
-| Library database           | `~/.local/share/comic-editor/library.db`   |
-| Window layout              | `~/.local/share/comic-editor/window.ron`   |
-| Settings (incl. API key)   | `~/.config/comic-editor/settings.json`     |
-| Cover thumbnails           | `~/.cache/comic-editor/thumbnails/`        |
+| What                       | Where (Linux)                         |
+| -------------------------- | ------------------------------------- |
+| Library database           | `~/.local/share/pullbox/library.db`   |
+| Window layout              | `~/.local/share/pullbox/window.ron`   |
+| Settings (incl. API key)   | `~/.config/pullbox/settings.json`     |
+| Cover thumbnails           | `~/.cache/pullbox/thumbnails/`        |
 
-Set `COMIC_EDITOR_DB` to use a different library database.
+Set `PULLBOX_DB` to use a different library database.
 
 ## Development
 
@@ -207,7 +207,7 @@ push to `main` and on pull requests.
    ```
 
 The release workflow builds the binary on Ubuntu 24.04, packages
-`comic-editor-<tag>-linux-x86_64.tar.gz` and `comic-editor-<tag>-x86_64.AppImage`
+`pullbox-<tag>-linux-x86_64.tar.gz` and `pullbox-<tag>-x86_64.AppImage`
 with their `.sha256` files, and publishes them as a GitHub release. The release
 notes are the version's section of `CHANGELOG.md`, followed by install
 instructions (`packaging/release-install.md`) and a link to the commits since
@@ -227,6 +227,6 @@ under any other licence fails the release until it's been added there.
 
 ## Licence
 
-Comic Editor is released under the [MIT licence](LICENSE). **Help → About
-Comic Editor** lists the main projects it's built on, and opens the licences of
+Pullbox is released under the [MIT licence](LICENSE). **Help → About
+Pullbox** lists the main projects it's built on, and opens the licences of
 everything it includes.

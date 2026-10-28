@@ -23,5 +23,5 @@ sed "s/@VERSION@/v$version/g" packaging/release-install.md
 
 previous=$(git describe --tags --abbrev=0 --exclude "v$version" HEAD 2>/dev/null || true)
 if [ -n "$previous" ]; then
-    printf '\n**Full changelog**: https://github.com/Ikuu/comic-editor/compare/%s...v%s\n' "$previous" "$version"
+    printf '\n**Full changelog**: https://github.com/Ikuu/pullbox/compare/%s...v%s\n' "$previous" "$version"
 fi

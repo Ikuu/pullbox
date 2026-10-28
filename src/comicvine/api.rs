@@ -10,7 +10,7 @@ use serde::de::DeserializeOwned;
 
 const BASE_URL: &str = "https://comicvine.gamespot.com/api";
 /// ComicVine rejects requests without a descriptive User-Agent.
-const USER_AGENT: &str = concat!("comic-editor/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("pullbox/", env!("CARGO_PKG_VERSION"));
 /// ComicVine throttles clients making more than about one request per second.
 const MIN_REQUEST_INTERVAL: Duration = Duration::from_millis(1100);
 

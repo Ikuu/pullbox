@@ -55,7 +55,7 @@ fn replace_with_cbz(original: &Path, dir: &Path, dispose: Dispose) -> Result<Pat
     let target = original.with_extension("cbz");
     let parent = original.parent().context("file has no parent directory")?;
     let mut temp = tempfile::Builder::new()
-        .prefix(".comic-editor-")
+        .prefix(".pullbox-")
         .suffix(".cbz")
         .tempfile_in(parent)?;
     archive::pack_directory(dir, temp.as_file_mut())?;

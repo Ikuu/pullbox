@@ -69,7 +69,27 @@ pub fn now_secs() -> i64 {
 
 /// Standard per-user directories for this app (data, cache, …).
 pub fn project_dirs() -> Option<directories::ProjectDirs> {
-    directories::ProjectDirs::from("", "", "comic-editor")
+    directories::ProjectDirs::from("", "", "pullbox")
+}
+
+/// Moves the library, settings and thumbnails from where they were kept when
+/// the app was called Comic Editor, unless the new folders already exist.
+pub fn migrate_old_dirs() {
+    let (Some(old), Some(new)) = (directories::ProjectDirs::from("", "", "comic-editor"), project_dirs()) else {
+        return;
+    };
+    let pairs = [(old.data_dir(), new.data_dir()), (old.config_dir(), new.config_dir()), (old.cache_dir(), new.cache_dir())];
+    for (from, to) in pairs {
+        if !from.is_dir() || to.exists() {
+            continue;
+        }
+        if let Some(parent) = to.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Err(e) = std::fs::rename(from, to) {
+            eprintln!("moving {} to {}: {e}", from.display(), to.display());
+        }
+    }
 }
 
 /// Lower-cased file extension, or an empty string.

@@ -2,20 +2,20 @@
 
 ## AppImage
 
-Download `comic-editor-@VERSION@-x86_64.AppImage`, then make it executable and run it. It includes everything it needs.
+Download `pullbox-@VERSION@-x86_64.AppImage`, then make it executable and run it. It includes everything it needs.
 
 ```sh
-chmod +x comic-editor-@VERSION@-x86_64.AppImage
-./comic-editor-@VERSION@-x86_64.AppImage
+chmod +x pullbox-@VERSION@-x86_64.AppImage
+./pullbox-@VERSION@-x86_64.AppImage
 ```
 
 ## Tarball
 
-Installs Comic Editor for the current user, with a launcher entry. It needs `dav1d`, `unrar` and `avifenc` (from libavif) installed; see the [README](https://github.com/Ikuu/comic-editor#requirements).
+Installs Pullbox for the current user, with a launcher entry. It needs `dav1d`, `unrar` and `avifenc` (from libavif) installed; see the [README](https://github.com/Ikuu/pullbox#requirements).
 
 ```sh
-tar xzf comic-editor-@VERSION@-linux-x86_64.tar.gz
-cd comic-editor-@VERSION@-linux-x86_64
+tar xzf pullbox-@VERSION@-linux-x86_64.tar.gz
+cd pullbox-@VERSION@-linux-x86_64
 ./install.sh
 ```
 

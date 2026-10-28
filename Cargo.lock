@@ -768,32 +768,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "comic-editor"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "chrono",
- "directories",
- "eframe",
- "egui",
- "egui_extras",
- "image",
- "pure-rust-locales",
- "rayon",
- "rfd",
- "roxmltree 0.21.1",
- "rusqlite",
- "serde",
- "serde_json",
- "sys-locale",
- "tempfile",
- "trash",
- "ureq",
- "walkdir",
- "zip",
-]
-
-[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3236,6 +3210,32 @@ name = "profiling"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d595e54a326bc53c1c197b32d295e14b169e3cfeaa8dc82b529f947fba6bcf5"
+
+[[package]]
+name = "pullbox"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "directories",
+ "eframe",
+ "egui",
+ "egui_extras",
+ "image",
+ "pure-rust-locales",
+ "rayon",
+ "rfd",
+ "roxmltree 0.21.1",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sys-locale",
+ "tempfile",
+ "trash",
+ "ureq",
+ "walkdir",
+ "zip",
+]
 
 [[package]]
 name = "pure-rust-locales"

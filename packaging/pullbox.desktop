@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Comic Editor
+Name=Pullbox
 GenericName=Comic Library Manager
 Comment=Manage, tag and compress CBZ/CBR comics
 # @BIN@ and @ICON@ are replaced with installed paths by install.sh. A full
@@ -10,4 +10,4 @@ Icon=@ICON@
 Terminal=false
 Categories=Graphics;
 Keywords=comic;comics;cbz;cbr;comicrack;comicinfo;comicvine;metadata;avif;
-StartupWMClass=comic-editor
+StartupWMClass=pullbox

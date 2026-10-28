@@ -5,6 +5,11 @@ section as its GitHub release notes, followed by
 `packaging/release-install.md`. Keep each entry on one line: GitHub shows
 line breaks in release notes as they are.
 
+## Unreleased
+
+### Changes
+- Comic Editor is now called Pullbox. The library, settings and thumbnails are moved to their new folders on first launch, and installing removes the old launcher entry
+
 ## 0.4.0 – 2026-10-28
 
 ### Additions

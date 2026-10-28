@@ -13,15 +13,16 @@ mod thumbnails;
 mod ui;
 mod util;
 
-use app::ComicEditorApp;
+use app::PullboxApp;
 
-/// Desktop application ID; see `packaging/comic-editor.desktop`.
-const APP_ID: &str = "comic-editor";
+/// Desktop application ID; see `packaging/pullbox.desktop`.
+const APP_ID: &str = "pullbox";
 
 fn main() -> eframe::Result {
+    util::migrate_old_dirs();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("Comic Editor")
+            .with_title("Pullbox")
             // Must match the .desktop file name so the desktop shows the right icon.
             .with_app_id(APP_ID)
             .with_inner_size([1400.0, 850.0])
@@ -33,13 +34,13 @@ fn main() -> eframe::Result {
     };
 
     eframe::run_native(
-        "Comic Editor",
+        "Pullbox",
         options,
         Box::new(|cc| {
             // Lets egui::Image load ComicVine and AniList cover URLs.
             egui_extras::install_image_loaders(&cc.egui_ctx);
             theme::init(&cc.egui_ctx);
-            let mut app = ComicEditorApp::new(library::default_db_path(), &cc.egui_ctx)?;
+            let mut app = PullboxApp::new(library::default_db_path(), &cc.egui_ctx)?;
             // Pick up anything that changed on disk while the app was closed.
             app.start_scan(&cc.egui_ctx);
             Ok(Box::new(app))

@@ -1,4 +1,4 @@
-//! The About Comic Editor dialog: version, licence, the external tools in use
+//! The About Pullbox dialog: version, licence, the external tools in use
 //! and the projects the app is built on, with their licences.
 
 use std::path::{Path, PathBuf};
@@ -72,11 +72,11 @@ impl AboutDialog {
     fn summary(&mut self, ui: &mut egui::Ui) -> bool {
         ui.set_width(560.0);
         ui.horizontal(|ui| {
-            let icon = egui::Image::from_bytes("bytes://comic-editor.svg", include_bytes!("../../packaging/comic-editor.svg"));
+            let icon = egui::Image::from_bytes("bytes://pullbox.svg", include_bytes!("../../packaging/pullbox.svg"));
             ui.add(icon.fit_to_exact_size(vec2(64.0, 64.0)));
             ui.add_space(8.0);
             ui.vertical(|ui| {
-                ui.heading("Comic Editor");
+                ui.heading("Pullbox");
                 ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")));
                 ui.weak(env!("CARGO_PKG_DESCRIPTION"));
             });
@@ -162,7 +162,7 @@ impl Tool {
         };
         let version = self.version.as_deref().unwrap_or("unknown version");
         if is_bundled(path) {
-            ui.label(format!("{version}, included with Comic Editor"));
+            ui.label(format!("{version}, included with Pullbox"));
         } else {
             ui.label(format!("{version}, {}", path.display()));
         }
@@ -192,7 +192,7 @@ fn is_bundled(path: &Path) -> bool {
 fn find_licenses() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let dir = exe.parent()?;
-    [dir.join("../share/doc/comic-editor").join(LICENSES_FILE), dir.join(LICENSES_FILE)]
+    [dir.join("../share/doc/pullbox").join(LICENSES_FILE), dir.join(LICENSES_FILE)]
         .into_iter()
         .find(|path| path.is_file())
 }
@@ -210,7 +210,7 @@ fn path_row(ui: &mut egui::Ui, label: &str, path: Option<&Path>) {
 fn show_licenses(ui: &mut egui::Ui, lines: &[String]) -> bool {
     ui.set_width(760.0);
     ui.heading("Third-Party Licences");
-    ui.weak("Comic Editor is built on these projects, under the licences below.");
+    ui.weak("Pullbox is built on these projects, under the licences below.");
     ui.separator();
 
     let font = egui::TextStyle::Monospace.resolve(ui.style());
