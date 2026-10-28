@@ -254,7 +254,7 @@ impl AniListDialog {
                         ui.add_enabled(item.is_matched(), egui::Checkbox::without_text(&mut item.apply))
                             .on_hover_text("Apply this match");
                         ui.vertical(|ui| {
-                            let label = ui.add(widgets::selectable(ui, self.selected == index, &item.file_name));
+                            let label = ui.add(widgets::selectable(self.selected == index, &item.file_name));
                             if label.clicked() {
                                 self.selected = index;
                             }
@@ -308,7 +308,7 @@ impl AniListDialog {
                 };
                 for media in &item.results {
                     let response = ui
-                        .add(widgets::selectable(ui, current == Some(media.id), result_label(media)))
+                        .add(widgets::selectable(current == Some(media.id), result_label(media)))
                         .on_hover_ui(|ui| {
                             if let Some(url) = media.cover_url() {
                                 ui.add(egui::Image::new(url).max_height(260.0));

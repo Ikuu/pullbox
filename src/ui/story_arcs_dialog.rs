@@ -314,7 +314,7 @@ impl StoryArcsDialog {
             .auto_shrink([false, true])
             .show(ui, |ui| {
                 for (i, file) in state.series.files.iter().enumerate() {
-                    let response = ui.add(widgets::selectable(ui, state.selected.contains(&i), &file.file_name));
+                    let response = ui.add(widgets::selectable(state.selected.contains(&i), &file.file_name));
                     if response.clicked() {
                         clicked = Some((i, ui.input(|input| input.modifiers)));
                     }
