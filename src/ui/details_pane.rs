@@ -275,7 +275,9 @@ fn released(info: Option<&ComicInfo>, year: Option<i32>, month: Option<i32>) -> 
 /// A label and value on a grid row; nothing if there's no value.
 fn fact(ui: &mut egui::Ui, label: &str, value: Option<&str>) {
     let Some(value) = value.filter(|v| !v.is_empty()) else { return };
-    ui.weak(label);
+    // The pane wraps by default, and a grid's first column starts out narrow,
+    // so a wrapping label would settle at a few characters wide.
+    ui.add(egui::Label::new(RichText::new(label).weak()).extend());
     ui.add(egui::Label::new(value).wrap());
     ui.end_row();
 }
