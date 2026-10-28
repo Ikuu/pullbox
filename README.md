@@ -28,7 +28,9 @@ A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
 - **Metadata editing**: edit the `ComicInfo.xml` inside a comic, or change
   several comics at once.
 - **ComicVine lookup**: match comics against [ComicVine](https://comicvine.gamespot.com/)
-  and fill in their metadata.
+  and fill in their metadata. Narrow the series found by year or publisher,
+  and ignore publishers you never want, such as those of foreign-language
+  editions.
 - **AniList lookup**: match manga against [AniList](https://anilist.co/) and
   fill in the series' metadata: titles, story and art credits, genres, tags,
   summary and rating. AniList doesn't list volumes or chapters, so those come
