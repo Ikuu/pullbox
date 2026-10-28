@@ -70,6 +70,8 @@ pub struct ComicEditorApp {
     add_folder: Option<AddFolderDialog>,
     /// A comic to scroll into view in the list or grid next frame.
     scroll_to: Option<PathBuf>,
+    /// A folder to expand the tree to and scroll into view next frame.
+    tree_reveal: Option<PathBuf>,
     /// Last used compression settings, offered again next time.
     compress_options: CompressOptions,
 
@@ -143,6 +145,7 @@ impl ComicEditorApp {
             about: None,
             add_folder: None,
             scroll_to: None,
+            tree_reveal: None,
             compress_options: CompressOptions::default(),
             scan: None,
             job: None,
@@ -723,6 +726,9 @@ impl ComicEditorApp {
         };
         self.filter.scope = Scope::Folder(comic.folder().to_path_buf());
         self.filter.search.clear();
+        // The folder filter could hide the folder being revealed.
+        self.tree_filter.clear();
+        self.tree_reveal = Some(comic.folder().to_path_buf());
         self.refresh_visible();
         if let Some(position) = self.visible.iter().position(|&i| self.comics[i].path == path) {
             self.selection.select_only(position, path);
@@ -826,6 +832,7 @@ impl ComicEditorApp {
             ComicAction::ConvertToCbz(paths) => self.convert_to_cbz(ctx, paths),
             ComicAction::CompressAvif(paths) => self.open_compress_dialog(paths),
             ComicAction::LookUp(paths) => self.open_lookup(ctx, paths),
+            ComicAction::ShowInLibrary(path) => self.show_comic(&path),
             ComicAction::OpenInFileManager(dir) => self.open_dir(&dir),
         }
     }
@@ -1061,6 +1068,7 @@ impl ComicEditorApp {
             visible: &self.visible,
             selection: &mut self.selection,
             roots: &self.roots,
+            folder: self.filter.scope.folder().filter(|_| self.filter.search.trim().is_empty()),
         };
         match self.view_mode {
             ViewMode::Grid => self.grid.show(ui, &mut view, &mut self.thumbnails, scroll_to),
@@ -1132,7 +1140,10 @@ impl eframe::App for ComicEditorApp {
                 ui.add_space(4.0);
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
-                    .show(ui, |ui| self.tree.show(ui, &self.filter.scope, &self.tree_filter))
+                    .show(ui, |ui| {
+                        let reveal = self.tree_reveal.take();
+                        self.tree.show(ui, &self.filter.scope, &self.tree_filter, reveal.as_deref())
+                    })
                     .inner
             })
             .inner;

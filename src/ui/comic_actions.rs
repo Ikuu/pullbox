@@ -1,7 +1,7 @@
 //! Interaction shared by the list and grid views: clicking, the right-click
 //! menu and keyboard shortcuts.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::Selection;
 use crate::icons;
@@ -15,6 +15,8 @@ pub enum ComicAction {
     CompressAvif(Vec<PathBuf>),
     /// Look up on ComicVine, or AniList for manga.
     LookUp(Vec<PathBuf>),
+    /// Show the comic in its folder, e.g. from Recently Added or a search.
+    ShowInLibrary(PathBuf),
     OpenInFileManager(PathBuf),
 }
 
@@ -26,6 +28,8 @@ pub struct ComicView<'a> {
     pub selection: &'a mut Selection,
     /// The library folders, which decide where comics are looked up.
     pub roots: &'a [Root],
+    /// The folder shown, if the view is a folder with no search applied.
+    pub folder: Option<&'a Path>,
 }
 
 impl ComicView<'_> {
@@ -95,6 +99,10 @@ impl ComicView<'_> {
             return Some(ComicAction::CompressAvif(self.selected()));
         }
         ui.separator();
+        // Nothing to do if the comic's folder is already what's shown.
+        if self.folder != Some(comic.folder()) && ui.add(icons::button("go-jump", "", "Show in Library")).clicked() {
+            return Some(ComicAction::ShowInLibrary(comic.path.clone()));
+        }
         if ui.add(icons::button("folder-open", "", "Show in File Manager")).clicked() {
             return Some(ComicAction::OpenInFileManager(comic.folder().to_path_buf()));
         }

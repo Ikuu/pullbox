@@ -94,7 +94,8 @@ impl FolderTree {
 
     /// Draws the tree. A non-empty `filter` shows only folders whose name
     /// contains it (case-insensitive), plus the folders leading to them.
-    pub fn show(&self, ui: &mut egui::Ui, scope: &Scope, filter: &str) -> Option<TreeAction> {
+    /// `reveal` expands the folders leading to that folder and scrolls to it.
+    pub fn show(&self, ui: &mut egui::Ui, scope: &Scope, filter: &str, reveal: Option<&Path>) -> Option<TreeAction> {
         let needle = filter.trim().to_lowercase();
         let filter = if needle.is_empty() { Filter::Off } else { Filter::Searching(&needle) };
         let mut action = None;
@@ -133,7 +134,7 @@ impl FolderTree {
 
         let mut any_shown = false;
         for root in &self.roots {
-            any_shown |= show_node(ui, root, root.kind.unwrap_or_default(), selected, filter, &mut action);
+            any_shown |= show_node(ui, root, root.kind.unwrap_or_default(), selected, filter, reveal, &mut action);
         }
         if !any_shown && filter != Filter::Off {
             ui.weak("No matching folders");
@@ -207,6 +208,7 @@ fn show_node(
     kind: LibraryKind,
     selected: Option<&Path>,
     filter: Filter,
+    reveal: Option<&Path>,
     action: &mut Option<TreeAction>,
 ) -> bool {
     let is_root = node.kind.is_some();
@@ -232,6 +234,9 @@ fn show_node(
             None => node.path.display().to_string(),
         };
         let response = entry_label(ui, is_selected, icon, &node.name, node.comic_count).on_hover_text(hover);
+        if reveal == Some(node.path.as_path()) {
+            response.scroll_to_me(Some(egui::Align::Center));
+        }
         if response.clicked() {
             *action = Some(click_action(is_selected, Scope::Folder(node.path.clone())));
         }
@@ -290,12 +295,17 @@ fn show_node(
     // Separate expanded/collapsed state while filtering, so clearing the
     // filter restores the tree as it was.
     let id = ui.make_persistent_id((&node.path, filter != Filter::Off));
-    CollapsingState::load_with_default_open(ui.ctx(), id, open_by_default)
-        .show_header(ui, label)
-        .body(|ui| {
-            for child in &node.children {
-                show_node(ui, child, kind, selected, child_filter, action);
-            }
-        });
+    let mut state = CollapsingState::load_with_default_open(ui.ctx(), id, open_by_default);
+    if reveal.is_some_and(|r| r != node.path && r.starts_with(&node.path)) && !state.is_open() {
+        state.set_open(true);
+        // Opened at once rather than animated, so the revealed folder is
+        // already in place to scroll to.
+        ui.ctx().animate_bool_with_time(state.id(), true, 0.0);
+    }
+    state.show_header(ui, label).body(|ui| {
+        for child in &node.children {
+            show_node(ui, child, kind, selected, child_filter, reveal, action);
+        }
+    });
     true
 }
