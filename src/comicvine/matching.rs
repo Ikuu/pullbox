@@ -203,4 +203,20 @@ mod tests {
         let ranked: Vec<u64> = rank_volumes(&volumes, &lookup("Saga", "12", Some(2013))).iter().map(|v| v.id).collect();
         assert_eq!(ranked, [2, 3, 1]);
     }
+
+    #[test]
+    fn ignores_publishers_by_name() {
+        let volume = |publisher: Option<&str>| Volume {
+            id: 1,
+            name: "Captain America".into(),
+            start_year: Some("2009".into()),
+            publisher: publisher.map(|name| crate::comicvine::api::Named { name: name.into() }),
+            count_of_issues: 23,
+            image: None,
+        };
+        let ignored = ["Editorial Televisa".to_owned()];
+        assert!(volume(Some("editorial televisa")).publisher_ignored(&ignored));
+        assert!(!volume(Some("Marvel")).publisher_ignored(&ignored));
+        assert!(!volume(None).publisher_ignored(&ignored));
+    }
 }

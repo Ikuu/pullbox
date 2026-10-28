@@ -376,7 +376,8 @@ impl ComicEditorApp {
         if targets.is_empty() {
             return;
         }
-        self.comicvine_dialog = Some(ComicVineDialog::new(targets, api_key, "Apply", ctx));
+        let ignored = self.settings.comicvine_ignored_publishers.clone();
+        self.comicvine_dialog = Some(ComicVineDialog::new(targets, api_key, ignored, "Apply", ctx));
         self.lookup_fills_editor = false;
     }
 
@@ -434,7 +435,8 @@ impl ComicEditorApp {
 
         let Some(api_key) = self.comicvine_api_key() else { return };
         let target = ComicVineTarget { path, file_name, lookup };
-        self.comicvine_dialog = Some(ComicVineDialog::new(vec![target], api_key, "Use These Values", ctx));
+        let ignored = self.settings.comicvine_ignored_publishers.clone();
+        self.comicvine_dialog = Some(ComicVineDialog::new(vec![target], api_key, ignored, "Use These Values", ctx));
         self.lookup_fills_editor = true;
     }
 
@@ -450,7 +452,14 @@ impl ComicEditorApp {
 
     fn show_lookup_dialogs(&mut self, ctx: &egui::Context) {
         let outcome = if let Some(dialog) = &mut self.comicvine_dialog {
-            dialog.show(ctx)
+            let outcome = dialog.show(ctx);
+            // Saved straight away: ignoring a publisher isn't undone by Cancel.
+            if let Some(ignored) = dialog.take_ignored_publishers() {
+                self.settings.comicvine_ignored_publishers = ignored;
+                let saved = self.settings.save();
+                self.report_error(saved);
+            }
+            outcome
         } else if let Some(dialog) = &mut self.anilist_dialog {
             dialog.show(ctx)
         } else {

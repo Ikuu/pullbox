@@ -75,6 +75,16 @@ pub fn selectable_value<'a, T: PartialEq>(
     response
 }
 
+/// Records the height of what was drawn since `top`, and redraws if it
+/// changed, so layout sized from it catches up.
+pub fn remember_height(ui: &egui::Ui, stored: &mut Option<f32>, top: f32) {
+    let height = ui.cursor().top() - top;
+    if stored.is_none_or(|h| (h - height).abs() > 0.5) {
+        *stored = Some(height);
+        ui.ctx().request_repaint();
+    }
+}
+
 /// Paints a small rounded label, placed at `pos` by `align`. Returns its rect.
 pub fn paint_badge(
     painter: &egui::Painter,

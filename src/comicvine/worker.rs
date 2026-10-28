@@ -4,6 +4,7 @@
 
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use anyhow::Result;
@@ -36,17 +37,22 @@ pub enum Event {
 pub struct Session {
     requests: Sender<Request>,
     pub events: Receiver<Event>,
+    ignored_publishers: Arc<Mutex<Vec<String>>>,
 }
 
 impl Session {
-    pub fn start(api_key: String, notify: impl Fn() + Send + 'static) -> Self {
+    /// Auto-matching skips series from `ignored_publishers`.
+    pub fn start(api_key: String, ignored_publishers: Vec<String>, notify: impl Fn() + Send + 'static) -> Self {
         let (requests, request_rx) = channel();
         let (event_tx, events) = channel();
+        let ignored_publishers = Arc::new(Mutex::new(ignored_publishers));
+        let worker_ignored = Arc::clone(&ignored_publishers);
         thread::spawn(move || {
             let mut worker = Worker {
                 client: Client::new(api_key),
                 searches: HashMap::new(),
                 issues: HashMap::new(),
+                ignored_publishers: worker_ignored,
             };
             for request in request_rx {
                 let event = worker.handle(request, &|e| {
@@ -59,7 +65,12 @@ impl Session {
                 notify();
             }
         });
-        Self { requests, events }
+        Self { requests, events, ignored_publishers }
+    }
+
+    /// Applies to auto-matches the worker hasn't started yet.
+    pub fn set_ignored_publishers(&self, publishers: Vec<String>) {
+        *self.ignored_publishers.lock().unwrap() = publishers;
     }
 
     pub fn send(&self, request: Request) {
@@ -75,6 +86,7 @@ struct Worker {
     searches: HashMap<String, Vec<Volume>>,
     /// (volume id, issue number) → issue, if it exists.
     issues: HashMap<(u64, String), Option<Issue>>,
+    ignored_publishers: Arc<Mutex<Vec<String>>>,
 }
 
 impl Worker {
@@ -103,7 +115,9 @@ impl Worker {
                 if lookup.number.is_empty() {
                     return Ok(Event::NoMatch { target });
                 }
-                for volume in rank_volumes(&volumes, &lookup).into_iter().take(CANDIDATES_TO_TRY) {
+                let ignored = self.ignored_publishers.lock().unwrap().clone();
+                let candidates: Vec<Volume> = volumes.into_iter().filter(|v| !v.publisher_ignored(&ignored)).collect();
+                for volume in rank_volumes(&candidates, &lookup).into_iter().take(CANDIDATES_TO_TRY) {
                     if let Some(issue) = self.issue(volume.id, &lookup.number)? {
                         return Ok(Event::Matched { target, volume: volume.clone(), issue: Box::new(issue) });
                     }

@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 #[serde(default)]
 pub struct Settings {
     pub comicvine_api_key: String,
+    /// Publishers whose series ComicVine lookups hide, e.g. foreign-language
+    /// reprints.
+    pub comicvine_ignored_publishers: Vec<String>,
     /// The view the comic pane opens in.
     pub default_view: ViewMode,
     /// How far back "Recently Added" looks.
@@ -26,6 +29,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             comicvine_api_key: String::new(),
+            comicvine_ignored_publishers: Vec::new(),
             default_view: ViewMode::default(),
             recent_days: 30,
             show_details: true,

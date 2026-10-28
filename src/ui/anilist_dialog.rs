@@ -71,6 +71,9 @@ pub struct AniListDialog {
     selected: usize,
     /// Text of the button that applies the matches.
     apply_label: &'static str,
+    /// Height of the last match preview shown, measured so the results can
+    /// take the rest.
+    preview_height: Option<f32>,
 }
 
 /// Fields shown in the match preview, with their labels.
@@ -110,8 +113,14 @@ impl Sizes {
         (self.width * 0.34).min(340.0)
     }
 
-    fn results_height(self) -> f32 {
-        (self.body_height * 0.3).min(170.0)
+    /// The separator between the results and the match preview, with slack
+    /// so the details don't need to scroll.
+    const SEPARATOR_HEIGHT: f32 = 20.0;
+
+    /// The results get whatever the rows above them (`above`) and the match
+    /// preview leave.
+    fn results_height(self, above: f32, preview: f32) -> f32 {
+        (self.body_height - above - preview - Self::SEPARATOR_HEIGHT).max(150.0)
     }
 
     fn cover_height(self) -> f32 {
@@ -147,7 +156,7 @@ impl AniListDialog {
             })
             .collect();
 
-        Self { session, items, selected: 0, apply_label }
+        Self { session, items, selected: 0, apply_label, preview_height: None }
     }
 
     pub fn show(&mut self, ctx: &egui::Context) -> Option<ScrapeOutcome> {
@@ -269,6 +278,7 @@ impl AniListDialog {
     fn item_details(&mut self, ui: &mut Ui, sizes: Sizes) {
         let target = self.selected;
         let Some(item) = self.items.get_mut(target) else { return };
+        let top = ui.cursor().top();
 
         ui.horizontal(|ui| {
             ui.label("Series");
@@ -293,14 +303,22 @@ impl AniListDialog {
 
         ui.add_space(4.0);
         ui.label(RichText::new("Series found — hover for a cover, click to use:").small().weak());
+        let above = ui.cursor().top() - top;
+        let preview_height = self.preview_height.unwrap_or(sizes.cover_height());
         let mut picked = None;
         egui::ScrollArea::vertical()
             .id_salt("anilist_results")
-            .max_height(sizes.results_height())
-            .auto_shrink([false, true])
+            .max_height(sizes.results_height(above, preview_height))
+            // A fixed height, so the preview below doesn't jump as results change.
+            .auto_shrink(false)
             .show(ui, |ui| {
+                // Old results would look like the new ones until they arrive.
                 if item.searching {
-                    ui.spinner();
+                    ui.horizontal(|ui| {
+                        ui.spinner();
+                        ui.label(RichText::new("Searching…").weak());
+                    });
+                    return;
                 }
                 let current = match &item.status {
                     Status::Matched(media) => Some(media.id),
@@ -321,6 +339,7 @@ impl AniListDialog {
             });
 
         ui.separator();
+        let preview_top = ui.cursor().top();
         match &item.status {
             Status::Searching => {
                 ui.spinner();
@@ -338,6 +357,10 @@ impl AniListDialog {
             Status::Failed(error) => {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
+        }
+
+        if matches!(item.status, Status::Matched(_)) {
+            widgets::remember_height(ui, &mut self.preview_height, preview_top);
         }
 
         if let Some(media) = picked {
@@ -414,13 +437,20 @@ fn match_preview(ui: &mut Ui, media: &Media, values: &FieldValues, cover_height:
             ui.add(egui::Image::new(url).max_height(cover_height).max_width(cover_height / 1.5));
         }
         ui.vertical(|ui| {
-            egui::Grid::new("anilist_preview").num_columns(2).spacing([12.0, 4.0]).show(ui, |ui| {
-                for (field, label) in PREVIEW_FIELDS {
-                    ui.label(RichText::new(label).weak());
-                    ui.add(egui::Label::new(value(field)).wrap());
-                    ui.end_row();
-                }
-            });
+            // Long values (titles, credit lists) wrap beside the cover rather
+            // than widening the dialog. Leaves room for the label column.
+            let value_width = (ui.available_width() - 80.0).max(100.0);
+            egui::Grid::new("anilist_preview")
+                .num_columns(2)
+                .spacing([12.0, 4.0])
+                .max_col_width(value_width)
+                .show(ui, |ui| {
+                    for (field, label) in PREVIEW_FIELDS {
+                        ui.label(RichText::new(label).weak());
+                        ui.add(egui::Label::new(value(field)).wrap());
+                        ui.end_row();
+                    }
+                });
             let summary = value("Summary");
             if !summary.is_empty() {
                 ui.add_space(6.0);

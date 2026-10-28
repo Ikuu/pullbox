@@ -52,6 +52,12 @@ impl Volume {
     pub fn publisher_name(&self) -> &str {
         self.publisher.as_ref().map_or("", |p| p.name.as_str())
     }
+
+    /// Whether the series' publisher is one of `ignored` (ignoring case).
+    pub fn publisher_ignored(&self, ignored: &[String]) -> bool {
+        let name = self.publisher_name();
+        !name.is_empty() && ignored.iter().any(|i| i.to_lowercase() == name.to_lowercase())
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
