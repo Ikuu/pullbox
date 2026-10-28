@@ -5,11 +5,14 @@ A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
 ## Features
 
 - **Library browser**: add one or more library folders and browse them in a
-  folder tree, as a sortable list or as a grid of covers. Search by series,
-  title, publisher, writer, story arc or file name.
+  folder tree, as a sortable list or as a grid of covers. Covers show the
+  issue number and badges for CBR, uncompressed and untagged comics. Search by
+  series, title, publisher, writer, story arc or file name. **Show in Library**
+  goes from Recently Added or a search to the comic in its folder.
 - **Comic and manga folders**: when you add a folder, say whether it holds
-  comics or manga (right-click it to change this later). Comics in a manga
-  folder are tagged as manga, read right to left.
+  comics or manga (it guesses from the folder's name; right-click it to change
+  this later). Comics in a manga folder are tagged as manga, read right to
+  left.
 - **Recently Added**: the newest comics in the library, newest first. How far
   back it looks is set in Settings (30 days by default).
 - **Series check**: finds missing issues, issues you have more than once and
@@ -20,8 +23,8 @@ A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
   comics, and size by format, series and publisher, for the whole library
   (File menu) or one folder (right-click it). Savings are only known for comics
   compressed since the stats were added.
-- **Details pane**: the selected comic's cover, credits and summary. Toggle it
-  with the Details button.
+- **Details pane**: the selected comic's cover, credits and summary, or a
+  summary of several selected comics. Toggle it with the Details button.
 - **Fits your desktop**: uses the KDE colour scheme, font and icon theme, and
   restyles itself when you change them. Elsewhere it uses Breeze Dark colours
   and the system font. Right-click the list's header to choose its columns.
@@ -34,8 +37,8 @@ A desktop app for managing, tagging and compressing CBZ/CBR comic libraries.
 - **AniList lookup**: match manga against [AniList](https://anilist.co/) and
   fill in the series' metadata: titles, story and art credits, genres, tags,
   summary and rating. AniList doesn't list volumes or chapters, so those come
-  from the file name (`v01`, `Vol. 3`, `c097`, `Chapter 12`, …) and can be
-  corrected before applying. No API key is needed.
+  from the comic's tags or its file name (`v01`, `Vol. 3`, `c097`,
+  `Chapter 12`, …) and can be corrected before applying. No API key is needed.
 - **Story arcs**: right-click a folder in a manga library and choose
   **Story Arcs…** to split a series into named arcs. Select a run of files and
   make them an arc, or type the volumes and chapters each arc spans
@@ -143,8 +146,9 @@ cargo run --release
    the background.
 2. To use ComicVine lookups, get a free API key from
    <https://comicvine.gamespot.com/api/> and enter it in **File → Settings…**.
-3. Right-click comics to edit their info, look them up (on ComicVine, or
-   AniList for manga), convert them or compress them.
+3. Select comics and use the toolbar, or right-click them, to edit their
+   info, look them up (on ComicVine, or AniList for manga), convert them or
+   compress them.
 
 The library is rescanned on every launch. Only new or changed files are read
 again, so this is quick. Hidden files and folders (names starting with `.`)
@@ -165,6 +169,8 @@ being worked on, so no comic is left half-finished.
 | `Ctrl+I`          | Edit info for the selected comics                         |
 | Double-click      | Edit info for that comic                                  |
 | `F5`              | Refresh the selected folder, or the whole library         |
+| `Ctrl+F`          | Search                                                    |
+| `Escape`          | Clear the search                                          |
 
 Clicking a sidebar entry that's already selected also refreshes it.
 
@@ -179,6 +185,10 @@ Clicking a sidebar entry that's already selected also refreshes it.
 
 Set `PULLBOX_DB` to use a different library database.
 
+Pullbox used to be called Comic Editor. If you used it under that name, the
+first launch moves your library, settings and thumbnails from the
+`comic-editor` folders, and `install.sh` removes the old launcher entry.
+
 ## Development
 
 Building needs the dav1d development files (`libdav1d-dev` on Debian/Ubuntu;
@@ -190,8 +200,8 @@ cargo test -- --ignored   # the tests that need avifenc or contact ComicVine or 
 cargo clippy --all-targets
 ```
 
-GitHub Actions runs clippy and the tests (except the ignored ones) on every
-push to `main` and on pull requests.
+GitHub Actions runs clippy and the tests on every push to `main` and on pull
+requests, including the ignored ones except the one that contacts ComicVine.
 
 ### Releasing
 
@@ -202,8 +212,8 @@ push to `main` and on pull requests.
 3. Tag the commit with that version and push the tag:
 
    ```sh
-   git tag v0.2.0
-   git push origin v0.2.0
+   git tag v0.4.1
+   git push origin v0.4.1
    ```
 
 The release workflow builds the binary on Ubuntu 24.04, packages
@@ -212,9 +222,9 @@ with their `.sha256` files, and publishes them as a GitHub release. The release
 notes are the version's section of `CHANGELOG.md`, followed by install
 instructions (`packaging/release-install.md`) and a link to the commits since
 the previous release. It fails if the tag doesn't match `Cargo.toml` or
-`CHANGELOG.md` has no section for the version. To try a build without releasing, run the
-workflow by hand (**Actions → Release → Run workflow**); the files are attached
-to the run.
+`CHANGELOG.md` has no section for the version. To try a build without
+releasing, run the workflow by hand (**Actions → Release → Run workflow**); the
+files are attached to the run.
 
 The AppImage is built by `packaging/appimage.sh` with
 [linuxdeploy](https://github.com/linuxdeploy/linuxdeploy), and bundles the
