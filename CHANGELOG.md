@@ -5,10 +5,10 @@ section as its GitHub release notes, followed by
 `packaging/release-install.md`. Keep each entry on one line: GitHub shows
 line breaks in release notes as they are.
 
-## Unreleased
+## 0.4.1 – 2026-10-28
 
 ### Changes
-- Comic Editor is now called Pullbox. The library, settings and thumbnails are moved to their new folders on first launch, and installing removes the old launcher entry
+- Comic Editor is now called Pullbox. The library, settings and thumbnails are moved to their new folders on first launch, and installing removes the old launcher entry. The `COMIC_EDITOR_DB` environment variable is now `PULLBOX_DB`
 
 ## 0.4.0 – 2026-10-28
 
