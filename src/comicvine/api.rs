@@ -124,6 +124,10 @@ impl Client {
     }
 
     /// Searches series by name, best matches first (as ranked by ComicVine).
+    ///
+    /// Asks for the largest page ComicVine allows: long-running names have
+    /// dozens of same-named series, ranked in no useful order by date, so a
+    /// smaller page can miss the current run (`Batman` (2025) ranks 42nd).
     pub fn search_volumes(&mut self, query: &str) -> Result<Vec<Volume>> {
         self.get(
             "/search/",
@@ -131,7 +135,7 @@ impl Client {
                 ("query", query),
                 ("resources", "volume"),
                 ("field_list", VOLUME_FIELDS),
-                ("limit", "30"),
+                ("limit", "100"),
             ],
         )
     }
