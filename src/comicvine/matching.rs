@@ -38,12 +38,12 @@ pub fn parse_filename(stem: &str) -> Lookup {
         number
     });
 
-    // Volume markers like `v2` / `Vol. 2` aren't part of the series name.
-    let series_tokens: Vec<&str> = tokens
-        .into_iter()
-        .filter(|t| !is_volume_marker(t))
-        .collect();
-    let series = series_tokens
+    // A word introducing the number, as in `Batman Issue 14`.
+    if number.is_some() && tokens.len() > 1 && tokens.last().is_some_and(|t| t.eq_ignore_ascii_case("issue")) {
+        tokens.pop();
+    }
+
+    let series = without_volume_markers(&tokens)
         .join(" ")
         .trim_end_matches(|c: char| c == '-' || c == ',' || c == ':' || c.is_whitespace())
         .to_owned();
@@ -148,13 +148,40 @@ fn is_issue_number(token: &str) -> bool {
     !whole.is_empty() && whole.chars().all(|c| c.is_ascii_digit()) && fraction.chars().all(|c| c.is_ascii_digit())
 }
 
-fn is_volume_marker(token: &str) -> bool {
+/// Removes markers like `v2`, `Vol. 2` and `Volume 01`, which aren't part of
+/// the series name. A word on its own only counts when a number follows or,
+/// for `Vol` / `Volume`, when it ends the name (the number having been taken
+/// as the issue number), so `V for Vendetta` and `Batman v Superman` survive.
+fn without_volume_markers<'a>(tokens: &[&'a str]) -> Vec<&'a str> {
+    let mut kept = Vec::with_capacity(tokens.len());
+    let mut rest = tokens.iter().copied().peekable();
+    while let Some(token) = rest.next() {
+        let marker = volume_marker_suffix(token);
+        if matches!(marker.as_deref(), Some(suffix) if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit())) {
+            continue;
+        }
+        if marker.as_deref() == Some("") && !kept.is_empty() {
+            match rest.peek() {
+                Some(next) if is_issue_number(next) => {
+                    rest.next();
+                    continue;
+                }
+                None => continue,
+                Some(_) => {}
+            }
+        }
+        kept.push(token);
+    }
+    kept
+}
+
+/// What follows a volume prefix: `Vol.2` → `2`, `Volume` → an empty string.
+fn volume_marker_suffix(token: &str) -> Option<String> {
     let lower = token.to_ascii_lowercase();
-    let rest = lower
-        .strip_prefix("vol.")
-        .or_else(|| lower.strip_prefix("vol"))
-        .or_else(|| lower.strip_prefix('v'));
-    matches!(rest, Some(r) if r.is_empty() || r.chars().all(|c| c.is_ascii_digit()))
+    ["volume", "vol.", "vol", "v"]
+        .iter()
+        .find_map(|prefix| lower.strip_prefix(prefix))
+        .map(str::to_owned)
 }
 
 #[cfg(test)]
@@ -172,6 +199,22 @@ mod tests {
         assert_eq!(parse_filename("The Walking Dead 001.5 (of 193)"), lookup("The Walking Dead", "1.5", None));
         assert_eq!(parse_filename("Watchmen"), lookup("Watchmen", "", None));
         assert_eq!(parse_filename("2000 AD 1234 (2021)"), lookup("2000 AD", "1234", Some(2021)));
+    }
+
+    #[test]
+    fn strips_volume_and_issue_words() {
+        assert_eq!(parse_filename("Batman (2025) Volume 01 Issue 014"), lookup("Batman", "14", Some(2025)));
+        assert_eq!(parse_filename("Batman Vol. 2 #5"), lookup("Batman", "5", None));
+        assert_eq!(parse_filename("Batman Vol.2 Issue 5"), lookup("Batman", "5", None));
+        assert_eq!(parse_filename("Batman Volume 2"), lookup("Batman", "2", None));
+    }
+
+    #[test]
+    fn keeps_titles_that_only_look_like_markers() {
+        assert_eq!(parse_filename("V for Vendetta 3"), lookup("V for Vendetta", "3", None));
+        assert_eq!(parse_filename("Batman v Superman 3"), lookup("Batman v Superman", "3", None));
+        assert_eq!(parse_filename("Volumes of Blood 2"), lookup("Volumes of Blood", "2", None));
+        assert_eq!(parse_filename("Issue 5"), lookup("Issue", "5", None));
     }
 
     #[test]
