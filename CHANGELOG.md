@@ -5,6 +5,13 @@ section as its GitHub release notes, followed by
 `packaging/release-install.md`. Keep each entry on one line: GitHub shows
 line breaks in release notes as they are.
 
+## 0.4.2 – 2026-11-08
+
+### Bug Fixes
+- Fixed ComicVine lookups missing series with common names, such as Batman (2025), which could also match a comic to the wrong series
+- Fixed ComicVine lookups searching for names like "Batman Volume 01 Issue" when a comic's series came from a file name with "Volume 01" or "Issue" in it
+- Fixed ComicVine lookups dropping a lone "V" from series names read from file names, such as V for Vendetta
+
 ## 0.4.1 – 2026-10-28
 
 ### Changes
