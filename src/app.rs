@@ -725,6 +725,7 @@ impl PullboxApp {
             return self.notify(ToastKind::Info, "That comic is no longer in the library");
         };
         self.filter.scope = Scope::Folder(comic.folder().to_path_buf());
+        self.table.sort_for_scope(&self.filter.scope);
         self.filter.search.clear();
         // The folder filter could hide the folder being revealed.
         self.tree_filter.clear();
@@ -808,9 +809,7 @@ impl PullboxApp {
     fn handle_tree_action(&mut self, action: TreeAction, ctx: &egui::Context) {
         match action {
             TreeAction::Select(scope) => {
-                if scope == Scope::Recent {
-                    self.table.sort_newest_first();
-                }
+                self.table.sort_for_scope(&scope);
                 self.filter.scope = scope;
                 // Picking a folder means "show me this folder", not "search within it".
                 self.filter.search.clear();

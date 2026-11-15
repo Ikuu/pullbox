@@ -7,6 +7,7 @@ use std::collections::HashSet;
 use egui_extras::{Column, TableBuilder};
 
 use super::comic_actions::{ComicAction, ComicView};
+use super::folder_tree::Scope;
 use crate::icons;
 use crate::library::ComicRecord;
 use crate::theme;
@@ -88,10 +89,14 @@ impl ComicTable {
         COLUMNS.iter().filter(|c| self.hidden.contains(&c.key)).map(|c| c.title.to_owned()).collect()
     }
 
-    /// Newest first, e.g. for "Recently Added".
-    pub fn sort_newest_first(&mut self) {
-        self.sort_key = SortKey::Added;
-        self.ascending = false;
+    /// The sort a scope starts with when picked: series for the whole
+    /// library, newest first for "Recently Added", volume inside a folder.
+    pub fn sort_for_scope(&mut self, scope: &Scope) {
+        (self.sort_key, self.ascending) = match scope {
+            Scope::All => (SortKey::Series, true),
+            Scope::Recent => (SortKey::Added, false),
+            Scope::Folder(_) => (SortKey::Volume, true),
+        };
     }
 
     /// Sorts `visible` (indices into `comics`) by the current sort column.
