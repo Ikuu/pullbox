@@ -5,6 +5,16 @@ section as its GitHub release notes, followed by
 `packaging/release-install.md`. Keep each entry on one line: GitHub shows
 line breaks in release notes as they are.
 
+## 0.4.3 – 2026-11-15
+
+### Changes
+- Folders now open sorted by volume, then issue number; All Comics still sorts by series and Recently Added by newest first
+- The ComicVine and AniList dialogs are no longer stretched to the full window height, so the series list stays a manageable size
+
+### Bug Fixes
+- Fixed missing or misplaced loading indicators in the ComicVine and AniList dialogs: each comic, the series results and the match preview now show a spinner while loading
+- Fixed the ComicVine and AniList dialogs resizing while a match loads after picking a series
+
 ## 0.4.2 – 2026-11-08
 
 ### Bug Fixes
