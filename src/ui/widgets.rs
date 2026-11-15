@@ -75,6 +75,33 @@ pub fn selectable_value<'a, T: PartialEq>(
     response
 }
 
+/// A spinner with a short label, where something is still loading.
+pub fn loading(ui: &mut egui::Ui, text: &str) {
+    ui.horizontal(|ui| {
+        ui.spinner();
+        ui.label(egui::RichText::new(text).weak());
+    });
+}
+
+/// A small spinner with a small label, e.g. a list row's status line.
+pub fn loading_small(ui: &mut egui::Ui, text: &str) {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 4.0;
+        let size = ui.text_style_height(&egui::TextStyle::Small);
+        ui.add(egui::Spinner::new().size(size));
+        ui.label(egui::RichText::new(text).small().weak());
+    });
+}
+
+/// Pads what was drawn since `top` out to `height`, so an area keeps its
+/// size while its content changes.
+pub fn pad_to_height(ui: &mut egui::Ui, top: f32, height: f32) {
+    let used = ui.cursor().top() - top;
+    if used < height {
+        ui.add_space(height - used);
+    }
+}
+
 /// Records the height of what was drawn since `top`, and redraws if it
 /// changed, so layout sized from it catches up.
 pub fn remember_height(ui: &egui::Ui, stored: &mut Option<f32>, top: f32) {

@@ -101,11 +101,14 @@ struct Sizes {
 impl Sizes {
     /// Room for the title, separators and footer buttons.
     const CHROME_HEIGHT: f32 = 150.0;
+    /// Tall enough for a match preview and a page of results; any taller and
+    /// the results list just grows.
+    const MAX_BODY_HEIGHT: f32 = 640.0;
 
     fn for_screen(screen: egui::Rect) -> Self {
         Self {
             width: (screen.width() - 60.0).clamp(500.0, 1000.0),
-            body_height: (screen.height() - Self::CHROME_HEIGHT).max(200.0),
+            body_height: (screen.height() - Self::CHROME_HEIGHT).clamp(200.0, Self::MAX_BODY_HEIGHT),
         }
     }
 
@@ -168,6 +171,9 @@ impl AniListDialog {
             ui.horizontal(|ui| {
                 ui.heading("AniList");
                 ui.label(RichText::new(self.progress_text()).weak());
+                if self.items.iter().any(|i| matches!(i.status, Status::Searching)) {
+                    ui.spinner();
+                }
             });
             ui.separator();
             ui.horizontal_top(|ui| {
@@ -267,7 +273,12 @@ impl AniListDialog {
                             if label.clicked() {
                                 self.selected = index;
                             }
-                            ui.label(status_line(item));
+                            match status_line(item) {
+                                Some(text) => {
+                                    ui.label(text);
+                                }
+                                None => widgets::loading_small(ui, "Searching…"),
+                            }
                         });
                     });
                     ui.add_space(2.0);
@@ -314,10 +325,7 @@ impl AniListDialog {
             .show(ui, |ui| {
                 // Old results would look like the new ones until they arrive.
                 if item.searching {
-                    ui.horizontal(|ui| {
-                        ui.spinner();
-                        ui.label(RichText::new("Searching…").weak());
-                    });
+                    widgets::loading(ui, "Searching series…");
                     return;
                 }
                 let current = match &item.status {
@@ -341,9 +349,7 @@ impl AniListDialog {
         ui.separator();
         let preview_top = ui.cursor().top();
         match &item.status {
-            Status::Searching => {
-                ui.spinner();
-            }
+            Status::Searching => widgets::loading(ui, "Finding a match…"),
             Status::Matched(media) => {
                 let values = item.values().unwrap_or_default();
                 match_preview(ui, media, &values, sizes.cover_height());
@@ -359,8 +365,12 @@ impl AniListDialog {
             }
         }
 
+        // Other states keep the preview's space, so the dialog doesn't resize
+        // as a match loads.
         if matches!(item.status, Status::Matched(_)) {
             widgets::remember_height(ui, &mut self.preview_height, preview_top);
+        } else {
+            widgets::pad_to_height(ui, preview_top, preview_height);
         }
 
         if let Some(media) = picked {
@@ -398,9 +408,10 @@ impl AniListDialog {
     }
 }
 
-fn status_line(item: &Item) -> RichText {
+/// `None` while searching, which shows a spinner instead.
+fn status_line(item: &Item) -> Option<RichText> {
     let text = match &item.status {
-        Status::Searching => "⏳ Searching…".to_owned(),
+        Status::Searching => return None,
         Status::Matched(media) => {
             let mut text = format!("✔ {}", media.display_title());
             if let Ok(volume) = item.volume.trim().parse::<i32>() {
@@ -414,7 +425,7 @@ fn status_line(item: &Item) -> RichText {
         Status::NoMatch => "✖ No match".to_owned(),
         Status::Failed(_) => "⚠ Error".to_owned(),
     };
-    RichText::new(text).small()
+    Some(RichText::new(text).small())
 }
 
 /// "Berserk (1989) — Manga — 41 volumes".

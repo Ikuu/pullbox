@@ -98,11 +98,14 @@ struct Sizes {
 impl Sizes {
     /// Room for the title, separators and footer buttons.
     const CHROME_HEIGHT: f32 = 150.0;
+    /// Tall enough for a match preview and a page of results; any taller and
+    /// the results list just grows.
+    const MAX_BODY_HEIGHT: f32 = 640.0;
 
     fn for_screen(screen: egui::Rect) -> Self {
         Self {
             width: (screen.width() - 60.0).clamp(500.0, 1000.0),
-            body_height: (screen.height() - Self::CHROME_HEIGHT).max(200.0),
+            body_height: (screen.height() - Self::CHROME_HEIGHT).clamp(200.0, Self::MAX_BODY_HEIGHT),
         }
     }
 
@@ -182,6 +185,9 @@ impl ComicVineDialog {
             ui.horizontal(|ui| {
                 ui.heading("ComicVine");
                 ui.label(RichText::new(self.progress_text()).weak());
+                if self.items.iter().any(|i| matches!(i.status, Status::Searching)) {
+                    ui.spinner();
+                }
             });
             ui.separator();
             ui.horizontal_top(|ui| {
@@ -288,7 +294,12 @@ impl ComicVineDialog {
                             if label.clicked() {
                                 self.selected = index;
                             }
-                            ui.label(status_line(&item.status));
+                            match status_line(&item.status) {
+                                Some(text) => {
+                                    ui.label(text);
+                                }
+                                None => widgets::loading_small(ui, "Searching…"),
+                            }
                         });
                     });
                     ui.add_space(2.0);
@@ -387,10 +398,7 @@ impl ComicVineDialog {
             .show(ui, |ui| {
                 // Old results would look like the new ones until they arrive.
                 if item.searching_volumes {
-                    ui.horizontal(|ui| {
-                        ui.spinner();
-                        ui.label(RichText::new("Searching…").weak());
-                    });
+                    widgets::loading(ui, "Searching series…");
                     return;
                 }
                 let current = match &item.status {
@@ -435,9 +443,7 @@ impl ComicVineDialog {
         ui.separator();
         let preview_top = ui.cursor().top();
         match &item.status {
-            Status::Searching => {
-                ui.spinner();
-            }
+            Status::Searching => widgets::loading(ui, &format!("Finding issue #{}…", item.number.trim())),
             Status::Matched { issue, values, .. } => match_preview(ui, issue, values, sizes.cover_height()),
             Status::NoMatch => {
                 ui.label(format!(
@@ -450,8 +456,12 @@ impl ComicVineDialog {
             }
         }
 
+        // Other states keep the preview's space, so the dialog doesn't resize
+        // as a match loads.
         if matches!(item.status, Status::Matched { .. }) {
             widgets::remember_height(ui, &mut self.preview_height, preview_top);
+        } else {
+            widgets::pad_to_height(ui, preview_top, preview_height);
         }
 
         if let Some(publisher) = toggle_ignored {
@@ -492,9 +502,10 @@ impl ComicVineDialog {
     }
 }
 
-fn status_line(status: &Status) -> RichText {
+/// `None` while searching, which shows a spinner instead.
+fn status_line(status: &Status) -> Option<RichText> {
     let text = match status {
-        Status::Searching => "⏳ Searching…".to_owned(),
+        Status::Searching => return None,
         Status::Matched { volume, issue, .. } => {
             let year = volume.start_year().map(|y| format!(" ({y})")).unwrap_or_default();
             format!("✔ {}{year} #{}", volume.name, issue.issue_number)
@@ -502,7 +513,7 @@ fn status_line(status: &Status) -> RichText {
         Status::NoMatch => "✖ No match".to_owned(),
         Status::Failed(_) => "⚠ Error".to_owned(),
     };
-    RichText::new(text).small()
+    Some(RichText::new(text).small())
 }
 
 /// Distinct values with how often each occurs, in ascending order.
